@@ -26,7 +26,7 @@ import {
   CircleStop,
 } from "lucide-react";
 import "@fontsource-variable/inter";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -257,6 +257,17 @@ function ResearchGuide({
 }) {
   const id = `research-guide-${step}`;
   if (!open) return children;
+  if (completed && step === 2) return (
+    <div id={id} role="region" aria-label="Research onboarding · step 2 complete" className="overflow-hidden rounded-xl border border-emerald-700/30">
+      <div className="flex items-center gap-3 border-b border-emerald-700/15 bg-emerald-700/5 px-3 py-3" role="status">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-white">
+          <CheckCircle2 className="size-4" />
+        </span>
+        <p className="text-xs font-medium text-emerald-700">2 of 3 · Explore sources · Complete</p>
+      </div>
+      <div className="px-3">{children}</div>
+    </div>
+  );
   const done = saved || completed;
   const instruction = saved
     ? "Saved. Open Notebook to return to this finding."
@@ -887,9 +898,6 @@ export function App() {
       )}
       {current.kind === "data" && !current.result.needsFile && (
         <>
-          {current.result.visualization && (
-            <MeanChart columns={current.result.stats.columns} />
-          )}
           <h3>Column statistics</h3>
           <Table className="text-xs tabular-nums">
             <TableHeader>
@@ -1546,9 +1554,17 @@ export function App() {
                           : current.result.title}
                     </h2>
                     <p>{current.result.summary}</p>
+                    {current.kind === "literature" && !current.result.scenario && !current.result.needsFile && (
+                      <p>
+                        Cardiac marker expression alone does not establish a mature functional phenotype. Compare experimental conditions and endpoints in the original papers.
+                      </p>
+                    )}
                   </div>
+                  {current.result.visualization && !current.result.needsFile && (
+                    <MeanChart columns={current.result.stats.columns} />
+                  )}
                   {!current.result.needsFile && (
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       <ResearchGuide
                         open={guidedAnswer && !modal}
                         completed={guideStep === 3}
@@ -1636,7 +1652,32 @@ export function App() {
                           </AccordionItem>
                         </Accordion>
                       </ResearchGuide>
-                      {answerDetails}
+                    <Accordion
+                      type="single"
+                      collapsible
+                      key={current.id}
+                      value={opened.analysis ? "full-answer" : ""}
+                      onValueChange={(value) => setOpened((previous) => ({ ...previous, analysis: value === "full-answer" }))}
+                    >
+                      <AccordionItem value="full-answer" className="border-0">
+                        {!opened.analysis && (
+                          <div className="relative mb-3 h-44 overflow-hidden" aria-hidden="true" inert="">
+                            <div className="pointer-events-none">{answerDetails}</div>
+                            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background via-background/70 to-transparent" />
+                          </div>
+                        )}
+                        <AccordionTrigger className={cn(
+                          buttonVariants({ variant: "outline" }),
+                          "group relative z-10 mx-auto -mt-3 h-11 !w-auto flex-none justify-center gap-3 rounded-full border-foreground/25 bg-background px-6 text-xs font-semibold shadow-sm hover:bg-secondary hover:no-underline [&>svg]:text-foreground",
+                        )}>
+                          <span className="flex items-center gap-2">
+                            <span className="group-data-[state=open]:hidden">Read full analysis</span>
+                            <span className="hidden group-data-[state=open]:inline">Collapse analysis</span>
+                          </span>
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-6">{answerDetails}</AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
                       <footer className="flex flex-wrap items-center gap-2">
                         <ResearchGuide
                           open={guidedAnswer && !modal}
