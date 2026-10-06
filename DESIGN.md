@@ -49,3 +49,6 @@ References: Canva https://mobbin.com/flows/d3237fe5-9e7c-47ec-89e6-56ccfd951dc1;
 
 ## Inline guidance — latest 2026-10-06
 The user rejected the tooltip/coachmark presentation. ResearchGuide is now an inline assistant message beside the action, with Co-Scientist identity, Onboarding counter, a 24px heading, 16px body and Skip/Finish. The same anatomy serves question, sources, optional save and saved confirmation. Remove portal/arrow/overlay presentation and reserved spacer; keep actual workflow, saving availability and reload replay. This replaces the contextual Popover appearance above.
+
+## Explicit onboarding frame — latest feedback
+Use a single white shadcn Card that groups the current instruction with the actual task control. Its quiet header explicitly says First research onboarding and displays stage progress, Step N of 3 and Skip/Finish. Apply the same frame to the composer, Sources disclosure trigger and Save/Open in Notebook action. Keep it in document flow, without a floating tooltip, shadow or sticky placement. The form inside the first frame uses a genuine bordered Textarea and no nested composer card. Preserve real-action progression and existing 12/16/24 typography. This replaces the unframed inline guidance above.

@@ -223,28 +223,48 @@ function ResearchGuide({
             ? "Open a paper below to inspect its methods and experimental model."
             : "Open Sources used below, then choose a paper to see the original study."
         : "Save this answer with its sources to Notebook so you can return to it. This step is optional.";
+  if (!open) return children;
   return (
-    <>
-      {open && (
-        <section
-          id={id}
-          aria-label="Research onboarding"
-          aria-labelledby={`${id}-title`}
-          aria-describedby={`${id}-description`}
-          className="mb-5 basis-full scroll-mt-24 space-y-3 py-3"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <Identity label={`Onboarding · ${step}/3`} />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="-mr-2 -my-2 shrink-0 text-muted-foreground"
-              aria-label={saved ? "Finish onboarding" : "Skip onboarding"}
-              onClick={onFinish}
-            >
-              {saved ? "Finish" : "Skip"}
-            </Button>
-          </div>
+    <Card
+      id={id}
+      role="region"
+      aria-label="Research onboarding"
+      aria-labelledby={`${id}-title`}
+      aria-describedby={`${id}-description`}
+      className="w-full basis-full scroll-mt-24 gap-0 overflow-hidden border-primary/30 py-0 shadow-none"
+    >
+      <CardHeader className="gap-3 border-b bg-secondary/60 px-4 py-3 sm:px-5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs font-semibold text-primary">
+            First research onboarding
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-mr-2 -my-2 shrink-0 text-muted-foreground"
+            aria-label={saved ? "Finish onboarding" : "Skip onboarding"}
+            onClick={onFinish}
+          >
+            {saved ? "Finish" : "Skip"}
+          </Button>
+        </div>
+        <div className="flex items-center gap-3">
+          <Progress
+            className="h-1 flex-1"
+            value={saved ? 100 : (step / 3) * 100}
+            aria-label="Onboarding stage"
+            aria-valuetext={saved ? "Onboarding complete" : `Step ${step} of 3`}
+          />
+          <span
+            className="whitespace-nowrap text-xs text-muted-foreground"
+            aria-live="polite"
+          >
+            {saved ? "Complete" : `Step ${step} of 3`}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5 p-4 sm:p-5">
+        <div className="space-y-3">
           <h2
             id={`${id}-title`}
             className="text-xl font-semibold leading-snug"
@@ -259,10 +279,10 @@ function ResearchGuide({
           >
             {description}
           </p>
-        </section>
-      )}
-      {children}
-    </>
+        </div>
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -893,17 +913,23 @@ export function App() {
                   onFinish={finishGuidance}
                 >
                   <form
-                    className={cn(
-                      "space-y-3 rounded-xl border bg-background p-4 transition-colors focus-within:border-primary",
-                      firstQuestion && !task && "border-primary/40",
-                    )}
+                    className={
+                      firstQuestion && !task
+                        ? "space-y-3"
+                        : "space-y-3 rounded-xl border bg-background p-4 transition-colors focus-within:border-primary"
+                    }
                     onSubmit={submit}
                   >
                     <Label htmlFor="question">Your question</Label>
                     <Textarea
                       id="question"
                       ref={input}
-                      className="min-h-28 resize-none rounded-none border-0 bg-transparent p-0 text-base shadow-none focus-visible:ring-0"
+                      className={cn(
+                        "min-h-28 resize-none text-base",
+                        firstQuestion && !task
+                          ? "bg-muted/40"
+                          : "rounded-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0",
+                      )}
                       aria-describedby={
                         firstQuestion && !task
                           ? "research-guide-1-description"
