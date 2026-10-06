@@ -10,6 +10,14 @@ export const EXAMPLES = {
       "How does cardiac reprogramming differ between mouse and human cells?",
       "Explore limitations before your next experiment.",
     ],
+    [
+      "Compare the experimental models in the included cardiac reprogramming studies.",
+      "Compare the three prepared study summaries.",
+    ],
+    [
+      "Create a target profile for GATA4 using the included cardiac reprogramming papers.",
+      "Explore a limited, prepared target profile.",
+    ],
   ],
   data: [
     [
@@ -19,6 +27,10 @@ export const EXAMPLES = {
     [
       "Summarise the numeric columns in my CSV with means and ranges.",
       "A descriptive summary, without an unnecessary full analysis.",
+    ],
+    [
+      "Visualize mean SUN1 and LMNA expression in the sample CSV as a bar chart.",
+      "Calculate and plot the sample data locally.",
     ],
   ],
   hypotheses: [
@@ -151,7 +163,10 @@ export function answer(task) {
         sources: [],
       };
     return {
-      title: "A quick look at your dataset",
+      title: /visualiz|bar chart|plot/i.test(task.question)
+        ? "Mean expression across your dataset"
+        : "A quick look at your dataset",
+      visualization: /visualiz|bar chart|plot/i.test(task.question),
       summary: `${task.file.stats.rows} rows analysed. ${task.file.stats.columns.map((c) => `${c.name}: mean ${fmt(c.mean)}`).join("; ")}.`,
       stats: task.file.stats,
       filename: task.file.name,
@@ -163,6 +178,22 @@ export function answer(task) {
       title: "Three ideas to investigate",
       summary:
         "Start with a small set of hypotheses: distinguish functional maturation from marker expression, compare starting cells, and test factor-delivery timing.",
+      sources: PAPERS,
+    };
+  if (/target profile.*gata4/i.test(task.question))
+    return {
+      title: "GATA4 · Prepared target profile",
+      scenario: "target",
+      summary:
+        "This example groups the included cardiac reprogramming evidence around GATA4. It is a limited research profile, not a comprehensive target or safety assessment.",
+      sources: PAPERS,
+    };
+  if (/compare the experimental models/i.test(task.question))
+    return {
+      title: "Comparison of the included studies",
+      scenario: "comparison",
+      summary:
+        "The included papers cover mouse cells in vitro, a mouse in vivo model, and human cells in vitro. Compare these experimental settings before treating findings as interchangeable.",
       sources: PAPERS,
     };
   return {

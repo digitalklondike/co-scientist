@@ -52,3 +52,9 @@ The user rejected the tooltip/coachmark presentation. ResearchGuide is now an in
 
 ## Explicit onboarding frame — latest feedback
 Use a single white shadcn Card that groups the current instruction with the actual task control. Its quiet header explicitly says First research onboarding and displays stage progress, Step N of 3 and Skip/Finish. Apply the same frame to the composer, Sources disclosure trigger and Save/Open in Notebook action. Keep it in document flow, without a floating tooltip, shadow or sticky placement. The form inside the first frame uses a genuine bordered Textarea and no nested composer card. Preserve real-action progression and existing 12/16/24 typography. This replaces the unframed inline guidance above.
+
+Onboarding refinement: use an action-bound task rail in the chat, consistent at question, sources and optional save. A quiet vertical primary rule and compact First research / Step N of 3 metadata distinguish guidance without a separate lesson card. Guided answer controls appear directly after the summary; extended scientific text follows. Source links live inside the current task. No sidebar checklist or overlay.
+
+
+Selected onboarding direction: the active working control receives a quiet blue border/ring and compact numbered instruction. Composer and Sources embed the instruction in their own surface; saving accents the actual button with the same hint alongside. No task rail or separate guidance heading.
+The examples grid now contains six supported scenarios in two rows: hypotheses, literature, local data analysis, prepared comparison, local mean visualization, and limited GATA4 target profile. Card selection remains editable and non-submitting. Scientific demos use the included three-paper set; charts calculate actual uploaded/sample CSV values locally.

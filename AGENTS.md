@@ -62,3 +62,35 @@ The user rejected floating coachmarks/tooltips. This supersedes the Popover pres
 
 ## Latest feedback: visibly separate onboarding
 The user wants onboarding to be clearly recognizable. ResearchGuide now uses one nonfloating, nonsticky shadcn Card enclosing both guidance and its actual control. A distinct quiet header says First research onboarding, includes the current Step N of 3 and shadcn Progress for stage position, plus Skip/Finish. The body is white, 24px title and 16px copy, with a subtle primary border and no shadow. Step 1 encloses the actual composer (no second card around the form); step 2 encloses the actual Sources trigger; step 3 encloses the single save/open button. The same anatomy applies to all stages and saved confirmation. No tooltips, portals or overlay, and no static step navigation. This supersedes the plain inline message appearance above. Preserve real-action transitions and reload replay.
+
+## Latest feedback: guidance belongs to the working interface
+The user rejected a separate sidebar checklist and the framed lesson presentation. Keep guidance attached to actual actions in the chat, with one shared ResearchGuide task rail (no outer Card, floating coachmark, sidebar guide or static step navigation). The compact First research badge, Step N of 3, heading, short instruction and actual control share the same anatomy. On guided answers, place the real sources and save controls immediately after the direct answer, before extended scientific text, so continuation is visible. The sources task includes its actual expanded paper list. Opening a literature disclosure stays on step 2; opening an original paper advances to optional saving. Preserve the real CSV alternative, one Save control, reload replay, all data, client palette and 12/16 typography. This is our proposed interaction, not a client-approved sequence.
+
+
+## Selected direction: onboarding inside the controls
+The user selected option 2: working elements themselves receive the current action accent and embedded instruction. This supersedes the task rail presentation. ResearchGuide accents the actual composer or sources Accordion and inserts a compact First research / N of 3 hint inside its surface; the actual save/open button receives an accent with its hint alongside. No independent lesson heading, outer guide card, side guide, static step list or floating coachmark. All guidance uses 12px metadata and 16px instructions. Progress remains gated by real actions, saving optional, and reload replays while retaining work.
+
+
+Latest placement correction: onboarding hint appears at the TOP of the active working element, before the question input or sources disclosure. Step 3 places the matching hint above the actual save/open button. Preserve integrated surfaces and action-driven progression.
+
+Research preparation: completed stage checkmarks use green (emerald-700); current loading indicator and progress keep the primary blue.
+
+Latest answer/loading correction: remove New research above the answer (sidebar entry remains). Step 2 explicitly asks to open Sources used then an original paper to see the basis of the answer. Preparation rows reserve a fixed icon slot and permanent badge space (inactive badges invisible/aria-hidden), with a minimum row height, preventing layout shifts on completion.
+
+Preparation stage list uses a compact group: 24px minimum rows with 4px spacing; preserve fixed icon and badge slots to avoid shifts.
+
+
+Latest onboarding flow: show steps 2 (Explore sources) and 3 (Save to Notebook, with purpose) together on the answer page after the complete scientific answer. Opening Sources used marks discovery complete and activates save guidance; it does not establish evidence verification. Original papers remain available. Do not auto-scroll away from the expanded sources. Keep saving optional and available before source discovery. Completed discovery uses a green check; upcoming save guidance remains visible and quiet.
+
+Latest placement/style correction: all onboarding surfaces share the same rounded border and tinted top hint anatomy, including save (not a loose paragraph above a button). Step 2 attaches to sources after the direct answer; extended evidence and conclusion follow; step 3 attaches to the real save/open footer after the conclusion. Do not stack the source and save onboarding blocks next to one another.
+
+Latest refinement: steps 2 and 3 keep matching blue border/ring emphasis, both visible; completion is signaled by green checks rather than dimming an upcoming block. Save guidance contains a real finding preview (question, what is preserved, actual single destination or choose-on-save), then the existing save/open control. Remove Saving is optional from the prose; retain skip and nonblocking save behavior.
+
+Loading navigation: render the in-progress research as the first normal chat row under Recent research, using the actual question title, spinner and full tooltip. Hide the matching old title during the pending task; on completion replace it naturally with the ready record. Cancel research uses shadcn destructive with a soft red background and red text, not solid red fill.
+
+Latest sidebar correction: each submitted research is a separate chat by record ID, even when question titles match. Do not deduplicate chats by title or hide an existing chat while another runs. Pending chat inserts above the five existing recent rows (six visible while preparing); completion adds its own record and normal recent-history limit applies. This supersedes earlier title-deduplication guidance.
+
+After skipping onboarding, examples follow the client video home anatomy: centered Try one of these examples caption and a three-column grid of scenario cards with icons, 12px category headings and 16px actual editable prompts. Keep only supported demo scenarios (hypotheses, literature, local data analysis). Cards fill the composer without auto-submitting; data sample behavior remains explicit/local.
+
+Example card refinement uses the researched Gemini template-card anatomy (https://mobbin.com/screens/f13a48f5-294f-4c84-8c65-ed3468e8c145): soft neutral surface, category icon on a muted colored tile, 12px title, 16px editable question, bottom-aligned Use example and arrow. Cards have equal desktop height and restrained primary hover/focus; respect reduced motion. They remain only after skipping onboarding and fill without sending.
+Six example cards form a 3x2 grid after skipping onboarding. Added Comparative Study (prepared model comparison), Data Visualization (actual local CSV mean chart), Target Profiling (limited prepared GATA4 profile using included papers). Each card fills an editable question; CSV cards attach sample data. Distinguish prepared examples from local calculations and preserve source/save workflows.

@@ -191,6 +191,59 @@ function Notice({ children }) {
   );
 }
 
+function MeanChart({ columns }) {
+  const low = Math.min(0, ...columns.map((c) => c.mean));
+  const high = Math.max(0, ...columns.map((c) => c.mean));
+  const span = high - low || 1;
+  const zero = (-low / span) * 100;
+  return (
+    <figure
+      className="my-5 space-y-3"
+      aria-label="Bar chart of mean numeric column values"
+    >
+      <figcaption className="text-base font-medium">
+        Mean expression · local calculation
+      </figcaption>
+      <div className="space-y-3">
+        {columns.map((c) => {
+          const end = ((c.mean - low) / span) * 100;
+          return (
+            <div
+              key={c.name}
+              className="grid grid-cols-[4rem_minmax(0,1fr)_3.5rem] items-center gap-3 text-xs"
+            >
+              <span className="truncate" title={c.name}>
+                {c.name}
+              </span>
+              <div
+                className="relative h-6 rounded bg-secondary"
+                aria-hidden="true"
+              >
+                <span
+                  className="absolute inset-y-0 w-px bg-muted-foreground/50"
+                  style={{ left: `${zero}%` }}
+                />
+                <span
+                  className="absolute inset-y-1 rounded-sm bg-primary"
+                  style={{
+                    left: `${Math.min(zero, end)}%`,
+                    width: `${Math.abs(end - zero)}%`,
+                  }}
+                />
+              </div>
+              <span className="text-right tabular-nums">{fmt(c.mean)}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Calculated from non-empty numeric values. Sample expression values are
+        illustrative.
+      </p>
+    </figure>
+  );
+}
+
 function ResearchGuide({
   children,
   open,
@@ -198,91 +251,125 @@ function ResearchGuide({
   saved,
   isData,
   sourcesOpen,
+  completed = false,
+  pending = false,
   onFinish,
 }) {
   const id = `research-guide-${step}`;
-  const title = saved
-    ? "Your finding is saved."
-    : step === 1
-      ? "Ask your first research question"
-      : step === 2
-        ? isData
-          ? "Look at the data behind your answer"
-          : "Look at the original evidence"
-        : "Keep a useful finding";
-  const description = saved
-    ? "Open Notebook to find this answer and its sources. You can add your own notes there."
+  if (!open) return children;
+  const done = saved || completed;
+  const instruction = saved
+    ? "Saved. Open Notebook to return to this finding."
     : step === 1
       ? isData
-        ? "Tell me which columns to explore and what to calculate. Then send your question."
-        : "Describe what you’re studying and what you want to find out. You can edit an example to get started."
+        ? "Choose what to calculate, then send your question."
+        : "Write your question, then press Ask."
       : step === 2
         ? isData
-          ? "Open Sources used to see the file and how the calculation was made."
+          ? "Open the file details to see how this was calculated."
           : sourcesOpen
-            ? "Open a paper below to inspect its methods and experimental model."
-            : "Open Sources used below, then choose a paper to see the original study."
-        : "Save this answer with its sources to Notebook so you can return to it. This step is optional.";
-  if (!open) return children;
-  return (
-    <Card
-      id={id}
-      role="region"
-      aria-label="Research onboarding"
-      aria-labelledby={`${id}-title`}
-      aria-describedby={`${id}-description`}
-      className="w-full basis-full scroll-mt-24 gap-0 overflow-hidden border-primary/30 py-0 shadow-none"
+            ? "Explore the papers behind this answer. You can open each original study."
+            : "See which papers this answer is based on. Open Sources used below."
+        : "Save the answer and sources to revisit and add notes. ";
+  const hint = (
+    <div
+      className="flex flex-wrap items-start gap-x-3 gap-y-2"
+      aria-live="polite"
     >
-      <CardHeader className="gap-3 border-b bg-secondary/60 px-4 py-3 sm:px-5">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-semibold text-primary">
-            First research onboarding
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="-mr-2 -my-2 shrink-0 text-muted-foreground"
-            aria-label={saved ? "Finish onboarding" : "Skip onboarding"}
-            onClick={onFinish}
-          >
-            {saved ? "Finish" : "Skip"}
-          </Button>
-        </div>
-        <div className="flex items-center gap-3">
-          <Progress
-            className="h-1 flex-1"
-            value={saved ? 100 : (step / 3) * 100}
-            aria-label="Onboarding stage"
-            aria-valuetext={saved ? "Onboarding complete" : `Step ${step} of 3`}
-          />
-          <span
-            className="whitespace-nowrap text-xs text-muted-foreground"
-            aria-live="polite"
-          >
-            {saved ? "Complete" : `Step ${step} of 3`}
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-5 p-4 sm:p-5">
-        <div className="space-y-3">
-          <h2
-            id={`${id}-title`}
-            className="text-xl font-semibold leading-snug"
-            aria-live="polite"
-          >
-            {title}
-          </h2>
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        <span
+          className={cn(
+            "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+            done
+              ? "bg-emerald-700 text-white"
+              : "bg-primary text-primary-foreground",
+          )}
+        >
+          {done ? <CheckCircle2 className="size-4" /> : step}
+        </span>
+        <div className="min-w-0 space-y-1">
+          <p className="text-xs font-medium text-primary">
+            {saved
+              ? "First research complete"
+              : step === 2
+                ? "2 of 3 · Explore sources"
+                : step === 3
+                  ? "3 of 3 · Save to Notebook"
+                  : "First research · 1 of 3"}
+          </p>
           <p
             id={`${id}-description`}
             className="text-base leading-relaxed text-muted-foreground"
-            aria-live="polite"
           >
-            {description}
+            {instruction}
           </p>
         </div>
-        {children}
-      </CardContent>
-    </Card>
+      </div>
+      {!completed && !pending && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="-my-1 shrink-0 text-muted-foreground"
+          aria-label={saved ? "Finish onboarding" : "Skip onboarding"}
+          onClick={onFinish}
+        >
+          {saved ? "Finish" : "Skip"}
+        </Button>
+      )}
+    </div>
+  );
+  const target = React.cloneElement(children, {
+    className: cn(
+      children.props.className,
+      step === 1
+        ? "border-primary/60 ring-4 ring-primary/5"
+        : step === 2
+          ? "rounded-xl border border-primary/60 px-3 ring-4 ring-primary/5"
+          : "",
+    ),
+    ...(step === 1 || step === 2
+      ? {
+          children: (
+            <>
+              <div
+                className={cn(
+                  "border-b border-primary/15 bg-primary/5 p-3",
+                  step === 1 ? "-mx-4 -mt-4" : "-mx-3 rounded-t-xl",
+                )}
+              >
+                {hint}
+              </div>
+              {children.props.children}
+            </>
+          ),
+        }
+      : {}),
+  });
+  return (
+    <div
+      id={id}
+      role="region"
+      aria-label="Research onboarding"
+      aria-describedby={`${id}-description`}
+      className="w-full basis-full scroll-mt-24"
+    >
+      {step === 3 ? (
+        <div
+          className={cn(
+            "overflow-hidden rounded-xl border",
+            "border-primary/60 ring-4 ring-primary/5",
+          )}
+        >
+          <div className="border-b border-primary/15 bg-primary/5 p-3">
+            {hint}
+          </div>
+          <div className="p-3">{children}</div>
+        </div>
+      ) : (
+        target
+      )}
+    </div>
   );
 }
 
@@ -376,21 +463,7 @@ export function App() {
     book = books.find((b) => b.id === bookId) || books[0],
     saved =
       current && books.some((b) => b.findings.some((f) => f.id === current.id));
-  const uniqueHistory = records.filter(
-    (r, i, list) =>
-      list.findIndex(
-        (item) =>
-          item.question
-            .trim()
-            .toLowerCase()
-            .replace(/[?.]+$/, "") ===
-          r.question
-            .trim()
-            .toLowerCase()
-            .replace(/[?.]+$/, ""),
-      ) === i,
-  );
-  const matchingHistory = uniqueHistory.filter((r) =>
+  const matchingHistory = records.filter((r) =>
     r.question.toLowerCase().includes(search.toLowerCase()),
   );
   const firstQuestion =
@@ -407,15 +480,7 @@ export function App() {
         ?.scrollIntoView({ behavior: "instant", block: "start" });
     });
     return () => cancelAnimationFrame(frame);
-  }, [
-    view,
-    guidedAnswer,
-    current?.id,
-    guideStep,
-    saved,
-    modal,
-    opened.sources,
-  ]);
+  }, [view, guidedAnswer, current?.id, modal]);
   function restartGuidance() {
     setGuide(true);
     setGuidedId(null);
@@ -525,7 +590,7 @@ export function App() {
   function useExample(example, i, kind = category) {
     setCategory(kind);
     setQuestion(example[0]);
-    if (kind === "data" && i === 0) sample();
+    if (kind === "data" && (i === 0 || i === 2)) sample();
     else setFile(null);
     input.current?.focus();
   }
@@ -683,6 +748,193 @@ export function App() {
       notify("Clipboard unavailable. Use Export instead.", undefined, "error");
     }
   }
+  const answerDetails = current && (
+    <div className="research-prose text-base leading-relaxed">
+      {current.result.scenario === "comparison" && (
+        <>
+          <h3>Experimental context</h3>
+          <Table className="text-xs">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Study</TableHead>
+                <TableHead>Experimental model</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {current.result.sources.map((source) => (
+                <TableRow key={source.url}>
+                  <TableCell>
+                    <a href={source.url} target="_blank" rel="noreferrer">
+                      {source.author}, {source.year}
+                    </a>
+                  </TableCell>
+                  <TableCell>{source.model}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <h3>What to compare next</h3>
+          <p>
+            Starting cells, factor combinations, delivery methods and functional
+            endpoints in each original paper.
+          </p>
+          <h3>Conclusion</h3>
+          <p>
+            This prepared comparison covers three selected studies. It does not
+            establish equivalent efficacy across models.
+          </p>
+        </>
+      )}
+      {current.result.scenario === "target" && (
+        <>
+          <h3>Profile scope</h3>
+          <Table className="text-xs">
+            <TableBody>
+              <TableRow>
+                <TableCell>Target</TableCell>
+                <TableCell>GATA4</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Research context</TableCell>
+                <TableCell>Direct cardiac reprogramming</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Included evidence</TableCell>
+                <TableCell>Three selected mouse and human studies</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+          <h3>Evidence to explore</h3>
+          <p>
+            Review GATA4 as part of the factor combinations discussed in the
+            included papers. The literature example distinguishes GMT from the
+            additional factors used across experimental settings.
+          </p>
+          <h3>Conclusion</h3>
+          <p>
+            A full target profile would require additional evidence on
+            mechanism, expression, validation and safety. Those sections are
+            outside this prepared example.
+          </p>
+        </>
+      )}
+      {current.result.needsFile && (
+        <Button
+          onClick={() => {
+            sample();
+            setQuestion(current.question);
+            setCategory("data");
+            nav("home");
+          }}
+        >
+          Try the sample CSV
+          <ArrowRight />
+        </Button>
+      )}
+      {current.kind === "literature" && !current.result.scenario && (
+        <>
+          <h3>Evidence across experimental models</h3>
+          <p>
+            Gata4, Mef2c and Tbx5 were used to reprogram mouse fibroblasts into
+            cardiomyocyte-like cells in vitro.{" "}
+            <a
+              href={PAPERS[0].url}
+              onClick={() => setReviewedId(current.id)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Ieda et al., 2010
+            </a>
+            .
+          </p>
+          <p>
+            Song and colleagues studied reprogramming with Gata4, Hand2, Mef2c
+            and Tbx5 in the mouse heart.{" "}
+            <a
+              href={PAPERS[1].url}
+              onClick={() => setReviewedId(current.id)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Song et al., 2012
+            </a>
+            .
+          </p>
+          <p>
+            Human fibroblast work includes additional cardiac factors and
+            muscle-specific microRNAs.{" "}
+            <a
+              href={PAPERS[2].url}
+              onClick={() => setReviewedId(current.id)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Nam et al., 2013
+            </a>
+            .
+          </p>
+          <h3>Conclusion</h3>
+          <p>
+            Cardiac marker expression does not establish a mature functional
+            phenotype. Outcomes depend on starting cells and experimental
+            conditions. Compare methods and endpoints in the original papers.
+          </p>
+          <p>
+            An illustrative review of three selected papers, not an exhaustive
+            literature search.
+          </p>
+        </>
+      )}
+      {current.kind === "data" && !current.result.needsFile && (
+        <>
+          {current.result.visualization && (
+            <MeanChart columns={current.result.stats.columns} />
+          )}
+          <h3>Column statistics</h3>
+          <Table className="text-xs tabular-nums">
+            <TableHeader>
+              <TableRow>
+                {["Column", "Values", "Mean", "Min", "Max", "Missing"].map(
+                  (h) => (
+                    <TableHead key={h}>{h}</TableHead>
+                  ),
+                )}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {current.result.stats.columns.map((c) => (
+                <TableRow key={c.name}>
+                  <TableCell className="font-medium">{c.name}</TableCell>
+                  <TableCell>{c.count}</TableCell>
+                  <TableCell>{fmt(c.mean)}</TableCell>
+                  <TableCell>{fmt(c.min)}</TableCell>
+                  <TableCell>{fmt(c.max)}</TableCell>
+                  <TableCell>{c.missing}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <p>
+            Arithmetic means from non-empty numeric values. No statistical model
+            or hypothesis test applied.
+          </p>
+        </>
+      )}
+      {current.kind === "hypotheses" &&
+        IDEAS.map(([title, why, experiment]) => (
+          <section key={title}>
+            <h3>{title}</h3>
+            <p>{why}</p>
+            <p>
+              <strong>Possible experiment:</strong> {experiment}
+            </p>
+          </section>
+        ))}
+      {current.kind === "hypotheses" && (
+        <p>Illustrative ideas, not validated hypotheses.</p>
+      )}
+    </div>
+  );
   return (
     <SidebarProvider openMobile={side} onOpenMobileChange={setSide}>
       <a
@@ -737,6 +989,32 @@ export function App() {
             <SidebarGroupLabel>Recent research</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
+                {task && (
+                  <SidebarMenuItem>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <SidebarMenuButton
+                          className="h-9"
+                          isActive={view === "loading"}
+                          onClick={() => nav("loading")}
+                          data-testid="pending-chat"
+                          aria-label={`Research in progress: ${task.question}`}
+                        >
+                          <Spinner className="size-4 shrink-0" />
+                          <span className="truncate">
+                            {task.question.replace(/[?.]$/, "")}
+                          </span>
+                        </SidebarMenuButton>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="right"
+                        className="max-w-72 text-xs leading-relaxed"
+                      >
+                        {task.question} · Research in progress
+                      </TooltipContent>
+                    </Tooltip>
+                  </SidebarMenuItem>
+                )}
                 {matchingHistory
                   .slice(0, showAllHistory || search ? undefined : 5)
                   .map((r) => (
@@ -787,18 +1065,6 @@ export function App() {
               )}
             </SidebarGroupContent>
           </SidebarGroup>
-          {task && (
-            <SidebarGroup>
-              <Button
-                variant="secondary"
-                className="justify-start"
-                onClick={() => nav("loading")}
-              >
-                <Spinner />
-                Research in progress
-              </Button>
-            </SidebarGroup>
-          )}
           {readyId && !task && view !== "answer" && (
             <SidebarGroup>
               <Button
@@ -882,30 +1148,28 @@ export function App() {
             />
             {view === "home" && (
               <div className="mx-auto w-full max-w-3xl space-y-7 pt-6 sm:pt-12">
-                {!(firstQuestion && !task) && (
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Identity />
-                      {!guide && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="ml-auto"
-                          onClick={restartGuidance}
-                        >
-                          Start onboarding
-                        </Button>
-                      )}
-                    </div>
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                      Ask a scientific question
-                    </h1>
-                    <p className="text-base leading-relaxed text-muted-foreground">
-                      Find evidence in the literature, explore your data, or
-                      develop hypotheses.
-                    </p>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Identity />
+                    {!guide && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="ml-auto"
+                        onClick={restartGuidance}
+                      >
+                        Start onboarding
+                      </Button>
+                    )}
                   </div>
-                )}
+                  <h1 className="text-2xl font-semibold tracking-tight">
+                    Ask a scientific question
+                  </h1>
+                  <p className="text-base leading-relaxed text-muted-foreground">
+                    Find evidence in the literature, explore your data, or
+                    develop hypotheses.
+                  </p>
+                </div>
                 <ResearchGuide
                   open={firstQuestion && !task && !modal}
                   step={1}
@@ -913,23 +1177,14 @@ export function App() {
                   onFinish={finishGuidance}
                 >
                   <form
-                    className={
-                      firstQuestion && !task
-                        ? "space-y-3"
-                        : "space-y-3 rounded-xl border bg-background p-4 transition-colors focus-within:border-primary"
-                    }
+                    className="space-y-3 overflow-hidden rounded-xl border bg-background p-4 transition-colors focus-within:border-primary"
                     onSubmit={submit}
                   >
                     <Label htmlFor="question">Your question</Label>
                     <Textarea
                       id="question"
                       ref={input}
-                      className={cn(
-                        "min-h-28 resize-none text-base",
-                        firstQuestion && !task
-                          ? "bg-muted/40"
-                          : "rounded-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0",
-                      )}
+                      className="min-h-28 resize-none rounded-none border-0 bg-transparent p-0 text-base shadow-none focus-visible:ring-0"
                       aria-describedby={
                         firstQuestion && !task
                           ? "research-guide-1-description"
@@ -1014,28 +1269,55 @@ export function App() {
                     aria-label="Editable question examples"
                     className="space-y-3"
                   >
-                    <p className="text-xs text-muted-foreground">
-                      Try an example, then edit it for your research.
+                    <p className="text-center text-xs font-medium text-muted-foreground">
+                      Try one of these examples
                     </p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                       {[
-                        ["literature", "Compare mouse and human evidence", 1],
-                        ["data", "Calculate mean gene expression", 0],
                         [
                           "hypotheses",
-                          "Explore cardiac reprogramming hypotheses",
+                          "Hypothesis Generation",
                           0,
+                          MessageSquare,
                         ],
-                      ].map(([kind, label, index]) => (
+                        ["literature", "Literature Review", 1, BookOpen],
+                        ["data", "Data Analysis", 0, ChartColumn],
+                        ["literature", "Comparative Study", 2, ArrowRight],
+                        ["data", "Data Visualization", 2, ChartColumn],
+                        ["literature", "Target Profiling", 3, Database],
+                      ].map(([kind, label, index, Icon]) => (
                         <Button
                           variant="outline"
-                          className="h-auto min-h-9 whitespace-normal text-left"
-                          key={kind}
+                          className="group flex h-full min-h-56 w-full flex-col items-start justify-start gap-4 whitespace-normal rounded-xl border-transparent bg-secondary/60 p-4 text-left font-normal shadow-none transition-colors duration-150 hover:border-primary/25 hover:bg-primary/5 motion-reduce:transition-none"
+                          key={label}
                           onClick={() =>
                             useExample(EXAMPLES[kind][index], index, kind)
                           }
                         >
-                          {label}
+                          <span className="flex items-center gap-3 text-xs font-medium">
+                            <span
+                              className={cn(
+                                "flex size-8 shrink-0 items-center justify-center rounded-lg",
+                                kind === "hypotheses"
+                                  ? "bg-violet-100 text-violet-700"
+                                  : kind === "data"
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-sky-100 text-primary",
+                              )}
+                            >
+                              <Icon className="size-4" />
+                            </span>
+                            {label}
+                          </span>
+                          <span className="block text-base leading-relaxed text-foreground">
+                            {EXAMPLES[kind][index][0]}
+                          </span>
+                          <span className="mt-auto flex w-full items-center justify-between gap-2 pt-2 text-xs font-medium text-primary">
+                            Use example
+                            <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/15 motion-reduce:transition-none">
+                              <ArrowRight className="size-3.5" />
+                            </span>
+                          </span>
                         </Button>
                       ))}
                     </div>
@@ -1150,35 +1432,44 @@ export function App() {
                       value={researchProgress}
                       aria-label="Research progress"
                     />
-                    {[
-                      "Understand the question",
-                      task.kind === "data"
-                        ? "Calculate descriptive statistics"
-                        : "Review relevant sources",
-                      "Prepare findings and next steps",
-                    ].map((label, i) => (
-                      <div
-                        key={label}
-                        className={
-                          "flex items-center gap-3 text-xs " +
-                          (i > stage ? "text-muted-foreground" : "")
-                        }
-                      >
-                        {i < stage ? (
-                          <CheckCircle2 className="size-4 text-primary" />
-                        ) : i === stage ? (
-                          <Spinner className="text-primary" />
-                        ) : (
-                          <Circle className="size-4" />
-                        )}
-                        <span>{label}</span>
-                        {i === stage && (
-                          <Badge variant="secondary" className="ml-auto">
+                    <div className="space-y-1">
+                      {[
+                        "Understand the question",
+                        task.kind === "data"
+                          ? "Calculate descriptive statistics"
+                          : "Review relevant sources",
+                        "Prepare findings and next steps",
+                      ].map((label, i) => (
+                        <div
+                          key={label}
+                          className={
+                            "flex min-h-6 items-center gap-3 text-xs " +
+                            (i > stage ? "text-muted-foreground" : "")
+                          }
+                        >
+                          <span className="flex size-4 shrink-0 items-center justify-center">
+                            {i < stage ? (
+                              <CheckCircle2 className="size-4 text-emerald-700" />
+                            ) : i === stage ? (
+                              <Spinner className="size-4 text-primary" />
+                            ) : (
+                              <Circle className="size-4" />
+                            )}
+                          </span>
+                          <span className="min-w-0 flex-1">{label}</span>
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              "ml-auto",
+                              i !== stage && "invisible",
+                            )}
+                            aria-hidden={i !== stage}
+                          >
                             In progress
                           </Badge>
-                        )}
-                      </div>
-                    ))}
+                        </div>
+                      ))}
+                    </div>
                   </CardContent>
                   <CardFooter className="flex flex-wrap gap-2">
                     <Button variant="outline" onClick={() => nav("home")}>
@@ -1186,7 +1477,8 @@ export function App() {
                       <ArrowRight />
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="destructive"
+                      className="bg-destructive/10 text-destructive shadow-none hover:bg-destructive/20"
                       onClick={() => {
                         setTask(null);
                         if (guide) setGuidedId(null);
@@ -1210,12 +1502,11 @@ export function App() {
             )}
             {view === "answer" && current && (
               <div className="mx-auto max-w-3xl space-y-8">
-                <Button variant="ghost" className="-ml-3" onClick={fresh}>
-                  <ArrowLeft />
-                  New research
-                </Button>
                 <QuestionBubble>{current.question}</QuestionBubble>
-                <article aria-label="Co-Scientist answer" className="space-y-6">
+                <article
+                  aria-label="Co-Scientist answer"
+                  className="flex flex-col gap-6"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <Identity
                       label={
@@ -1249,164 +1540,43 @@ export function App() {
                     <h2>
                       {current.result.needsFile
                         ? current.result.title
-                        : current.kind === "literature"
+                        : current.kind === "literature" &&
+                            !current.result.scenario
                           ? "Direct answer"
                           : current.result.title}
                     </h2>
                     <p>{current.result.summary}</p>
                   </div>
-                  <div className="research-prose text-base leading-relaxed">
-                    {current.result.needsFile && (
-                      <Button
-                        onClick={() => {
-                          sample();
-                          setQuestion(current.question);
-                          setCategory("data");
-                          nav("home");
-                        }}
-                      >
-                        Try the sample CSV
-                        <ArrowRight />
-                      </Button>
-                    )}
-                    {current.kind === "literature" && (
-                      <>
-                        <h3>Evidence across experimental models</h3>
-                        <p>
-                          Gata4, Mef2c and Tbx5 were used to reprogram mouse
-                          fibroblasts into cardiomyocyte-like cells in vitro.{" "}
-                          <a
-                            href={PAPERS[0].url}
-                            onClick={() => setReviewedId(current.id)}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Ieda et al., 2010
-                          </a>
-                          .
-                        </p>
-                        <p>
-                          Song and colleagues studied reprogramming with Gata4,
-                          Hand2, Mef2c and Tbx5 in the mouse heart.{" "}
-                          <a
-                            href={PAPERS[1].url}
-                            onClick={() => setReviewedId(current.id)}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Song et al., 2012
-                          </a>
-                          .
-                        </p>
-                        <p>
-                          Human fibroblast work includes additional cardiac
-                          factors and muscle-specific microRNAs.{" "}
-                          <a
-                            href={PAPERS[2].url}
-                            onClick={() => setReviewedId(current.id)}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Nam et al., 2013
-                          </a>
-                          .
-                        </p>
-                        <h3>Conclusion</h3>
-                        <p>
-                          Cardiac marker expression does not establish a mature
-                          functional phenotype. Outcomes depend on starting
-                          cells and experimental conditions. Compare methods and
-                          endpoints in the original papers.
-                        </p>
-                        <p>
-                          An illustrative review of three selected papers, not
-                          an exhaustive literature search.
-                        </p>
-                      </>
-                    )}
-                    {current.kind === "data" && !current.result.needsFile && (
-                      <>
-                        <h3>Column statistics</h3>
-                        <Table className="text-xs tabular-nums">
-                          <TableHeader>
-                            <TableRow>
-                              {[
-                                "Column",
-                                "Values",
-                                "Mean",
-                                "Min",
-                                "Max",
-                                "Missing",
-                              ].map((h) => (
-                                <TableHead key={h}>{h}</TableHead>
-                              ))}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {current.result.stats.columns.map((c) => (
-                              <TableRow key={c.name}>
-                                <TableCell className="font-medium">
-                                  {c.name}
-                                </TableCell>
-                                <TableCell>{c.count}</TableCell>
-                                <TableCell>{fmt(c.mean)}</TableCell>
-                                <TableCell>{fmt(c.min)}</TableCell>
-                                <TableCell>{fmt(c.max)}</TableCell>
-                                <TableCell>{c.missing}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                        <p>
-                          Arithmetic means from non-empty numeric values. No
-                          statistical model or hypothesis test applied.
-                        </p>
-                      </>
-                    )}
-                    {current.kind === "hypotheses" &&
-                      IDEAS.map(([title, why, experiment]) => (
-                        <section key={title}>
-                          <h3>{title}</h3>
-                          <p>{why}</p>
-                          <p>
-                            <strong>Possible experiment:</strong> {experiment}
-                          </p>
-                        </section>
-                      ))}
-                    {current.kind === "hypotheses" && (
-                      <p>Illustrative ideas, not validated hypotheses.</p>
-                    )}
-                  </div>
                   {!current.result.needsFile && (
                     <div className="space-y-4">
-                      <Accordion
-                        type="single"
-                        collapsible
-                        value={opened.sources ? "sources" : ""}
-                        onValueChange={(value) => {
-                          if (value === "sources" && current.kind === "data")
-                            setReviewedId(current.id);
-                          setOpened((p) => ({
-                            ...p,
-                            sources: value === "sources",
-                          }));
-                        }}
+                      <ResearchGuide
+                        open={guidedAnswer && !modal}
+                        completed={guideStep === 3}
+                        step={2}
+                        isData={current.kind === "data"}
+                        sourcesOpen={opened.sources}
+                        onFinish={finishGuidance}
                       >
-                        <AccordionItem value="sources">
-                          <ResearchGuide
-                            open={guidedAnswer && guideStep === 2 && !modal}
-                            step={2}
-                            isData={current.kind === "data"}
-                            sourcesOpen={opened.sources}
-                            onFinish={finishGuidance}
-                          >
+                        <Accordion
+                          type="single"
+                          collapsible
+                          value={opened.sources ? "sources" : ""}
+                          onValueChange={(value) => {
+                            if (value === "sources") setReviewedId(current.id);
+                            setOpened((p) => ({
+                              ...p,
+                              sources: value === "sources",
+                            }));
+                          }}
+                        >
+                          <AccordionItem value="sources">
                             <AccordionTrigger
                               id="trigger-sources"
                               className={cn(
                                 "scroll-mt-72 rounded-md px-3 text-xs",
                                 guidedAnswer &&
                                   guideStep === 2 &&
-                                  "bg-secondary ring-1 ring-primary/40",
+                                  "text-primary",
                               )}
                             >
                               <span className="flex flex-wrap items-center gap-3">
@@ -1419,70 +1589,101 @@ export function App() {
                                 </span>
                               </span>
                             </AccordionTrigger>
-                          </ResearchGuide>
-                          <AccordionContent
-                            aria-labelledby="trigger-sources"
-                            className="text-base"
-                            rootClassName="data-[state=open]:animate-none"
-                          >
-                            {current.kind === "data" ? (
-                              <p className="leading-relaxed">
-                                <strong>{current.result.filename}</strong>
-                                <br />
-                                {current.result.stats.rows} rows. Missing values
-                                excluded independently for each numeric column.
-                              </p>
-                            ) : (
-                              <div className="divide-y">
-                                {current.result.sources.map((source) => (
-                                  <a
-                                    key={source.url}
-                                    href={source.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    onClick={() => setReviewedId(current.id)}
-                                    className="group flex items-start gap-3 rounded-md px-2 py-4 hover:bg-accent"
-                                  >
-                                    <div className="flex-1 space-y-2">
-                                      <p className="text-base leading-relaxed text-primary group-hover:underline">
-                                        {source.title}
-                                      </p>
-                                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                        <span>
-                                          {source.author} · {source.journal} ·{" "}
-                                          {source.year}
-                                        </span>
-                                        <Badge variant="outline">
-                                          {source.model}
-                                        </Badge>
+                            <AccordionContent
+                              aria-labelledby="trigger-sources"
+                              className="text-base"
+                              rootClassName="data-[state=open]:animate-none"
+                            >
+                              {current.kind === "data" ? (
+                                <p className="leading-relaxed">
+                                  <strong>{current.result.filename}</strong>
+                                  <br />
+                                  {current.result.stats.rows} rows. Missing
+                                  values excluded independently for each numeric
+                                  column.
+                                </p>
+                              ) : (
+                                <div className="divide-y">
+                                  {current.result.sources.map((source) => (
+                                    <a
+                                      key={source.url}
+                                      href={source.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={() => setReviewedId(current.id)}
+                                      className="group flex items-start gap-3 rounded-md px-2 py-4 hover:bg-accent"
+                                    >
+                                      <div className="flex-1 space-y-2">
+                                        <p className="text-base leading-relaxed text-primary group-hover:underline">
+                                          {source.title}
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                          <span>
+                                            {source.author} · {source.journal} ·{" "}
+                                            {source.year}
+                                          </span>
+                                          <Badge variant="outline">
+                                            {source.model}
+                                          </Badge>
+                                        </div>
                                       </div>
-                                    </div>
-                                    <ArrowUpRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
-                                  </a>
-                                ))}
-                              </div>
-                            )}
-                          </AccordionContent>
-                        </AccordionItem>
-                      </Accordion>
+                                      <ArrowUpRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                      </ResearchGuide>
+                      {answerDetails}
                       <footer className="flex flex-wrap items-center gap-2">
                         <ResearchGuide
-                          open={guidedAnswer && guideStep === 3 && !modal}
+                          open={guidedAnswer && !modal}
                           step={3}
                           saved={saved}
                           onFinish={finishGuidance}
                         >
-                          <Button
-                            id="save-finding"
-                            variant={saved ? "outline" : "default"}
-                            onClick={() => {
-                              openSave();
-                              if (saved) finishGuidance();
-                            }}
-                          >
-                            {saved ? <CheckCircle2 /> : <NotebookPen />}
-                            {saved ? "Open in Notebook" : "Save to Notebook"}
-                          </Button>
+                          <div className="space-y-3">
+                            {guidedAnswer && (
+                              <div className="flex items-start gap-3">
+                                <NotebookPen className="mt-1 size-4 shrink-0 text-primary" />
+                                <div className="min-w-0 space-y-1">
+                                  <p className="text-xs text-muted-foreground">
+                                    {saved
+                                      ? "Saved finding"
+                                      : "Finding to save"}
+                                  </p>
+                                  <p className="text-base leading-relaxed">
+                                    {current.question}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Answer +{" "}
+                                    {current.kind === "data"
+                                      ? "file details"
+                                      : `${current.result.sources.length} sources`}
+                                    {saved
+                                      ? ` · Notebook: ${books.find((b) => b.findings.some((f) => f.id === current.id))?.title}`
+                                      : books.length === 1
+                                        ? ` · Notebook: ${books[0].title}`
+                                        : " · Choose a notebook when saving"}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                            <Button
+                              id="save-finding"
+                              className={guidedAnswer ? "ml-7" : undefined}
+                              variant={saved ? "outline" : "default"}
+                              onClick={() => {
+                                openSave();
+                                if (saved) finishGuidance();
+                              }}
+                            >
+                              {saved ? <CheckCircle2 /> : <NotebookPen />}
+                              {saved ? "Open in Notebook" : "Save to Notebook"}
+                            </Button>
+                          </div>
                         </ResearchGuide>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -1534,6 +1735,7 @@ export function App() {
                       </footer>
                     </div>
                   )}
+                  {current.result.needsFile && answerDetails}
                 </article>
                 {!current.result.needsFile && (
                   <section
