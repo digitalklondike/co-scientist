@@ -1,0 +1,124 @@
+@import "tailwindcss" source("./");
+@import "tw-animate-css";
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Inter Variable", Inter, Arial, sans-serif;
+  --text-xs: 12px;
+  --text-sm: 12px;
+  --text-base: 16px;
+  --text-lg: 16px;
+  --text-xl: 24px;
+  --text-2xl: 24px;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+:root {
+  color-scheme: light;
+  --radius: 0.625rem;
+  --background: #ffffff;
+  --foreground: #243746;
+  --card: #ffffff;
+  --card-foreground: #243746;
+  --popover: #ffffff;
+  --popover-foreground: #243746;
+  --primary: #0067a5;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f5f7;
+  --secondary-foreground: #243746;
+  --muted: #f6f8fa;
+  --muted-foreground: #526777;
+  --accent: #edf5fa;
+  --accent-foreground: #00598f;
+  --destructive: #b42318;
+  --border: #dce3e9;
+  --input: #c1cdd7;
+  --ring: #0067a5;
+  --sidebar: #f8fafb;
+  --sidebar-foreground: #243746;
+  --sidebar-primary: #0067a5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #edf5fa;
+  --sidebar-accent-foreground: #00598f;
+  --sidebar-border: #dce3e9;
+  --sidebar-ring: #0067a5;
+}
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans text-base antialiased;
+  }
+  input,
+  textarea {
+    caret-color: var(--primary);
+  }
+  ::selection {
+    background: #cce7f8;
+    color: #243746;
+  }
+}
+/* Continuous scientific text is content, not a stack of interface cards. */
+@layer components {
+  .research-prose > * + *,
+  .research-prose section > * + * {
+    margin-top: 1rem;
+  }
+  .research-prose h2,
+  .research-prose h3 {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.02em;
+  }
+  .research-prose h3 {
+    margin-top: 1.75rem;
+  }
+  .research-prose a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .research-prose a:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
