@@ -27,12 +27,6 @@ import {
 } from "lucide-react";
 import "@fontsource-variable/inter";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
-} from "@/components/ui/popover";
-import { Popover as PopoverPrimitive } from "radix-ui";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -230,60 +224,45 @@ function ResearchGuide({
             : "Open Sources used below, then choose a paper to see the original study."
         : "Save this answer with its sources to Notebook so you can return to it. This step is optional.";
   return (
-    <Popover open={open} modal={false}>
-      <PopoverAnchor asChild>{children}</PopoverAnchor>
-      <PopoverContent
-        id={id}
-        aria-label="Research onboarding"
-        aria-labelledby={`${id}-title`}
-        aria-describedby={`${id}-description`}
-        side="top"
-        align={step === 3 ? "start" : "center"}
-        sideOffset={12}
-        collisionPadding={{ top: 80, right: 20, bottom: 20, left: 20 }}
-        avoidCollisions={false}
-        className="z-10 w-[min(320px,calc(100vw-40px))] space-y-3 rounded-xl p-5 motion-reduce:animate-none"
-        onOpenAutoFocus={(event) => event.preventDefault()}
-        onCloseAutoFocus={(event) => event.preventDefault()}
-        onInteractOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={onFinish}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground" aria-live="polite">
-            First research · {step}/3{step === 3 && !saved ? " · Optional" : ""}
-          </p>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="-mr-2 -my-2 shrink-0 text-muted-foreground"
-            aria-label={saved ? "Finish onboarding" : "Skip onboarding"}
-            onClick={onFinish}
+    <>
+      {open && (
+        <section
+          id={id}
+          aria-label="Research onboarding"
+          aria-labelledby={`${id}-title`}
+          aria-describedby={`${id}-description`}
+          className="mb-5 basis-full scroll-mt-24 space-y-3 py-3"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <Identity label={`Onboarding · ${step}/3`} />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-mr-2 -my-2 shrink-0 text-muted-foreground"
+              aria-label={saved ? "Finish onboarding" : "Skip onboarding"}
+              onClick={onFinish}
+            >
+              {saved ? "Finish" : "Skip"}
+            </Button>
+          </div>
+          <h2
+            id={`${id}-title`}
+            className="text-xl font-semibold leading-snug"
+            aria-live="polite"
           >
-            <X />
-          </Button>
-        </div>
-        <h2
-          id={`${id}-title`}
-          className="text-base font-semibold leading-snug"
-          aria-live="polite"
-        >
-          {title}
-        </h2>
-        <p
-          id={`${id}-description`}
-          className="text-base leading-relaxed text-muted-foreground"
-          aria-live="polite"
-        >
-          {description}
-        </p>
-        <PopoverPrimitive.Arrow
-          aria-hidden="true"
-          className="fill-popover stroke-border"
-          width={14}
-          height={7}
-        />
-      </PopoverContent>
-    </Popover>
+            {title}
+          </h2>
+          <p
+            id={`${id}-description`}
+            className="text-base leading-relaxed text-muted-foreground"
+            aria-live="polite"
+          >
+            {description}
+          </p>
+        </section>
+      )}
+      {children}
+    </>
   );
 }
 
@@ -404,8 +383,8 @@ export function App() {
     if (view !== "answer" || !guidedAnswer || modal) return;
     const frame = requestAnimationFrame(() => {
       document
-        .getElementById(guideStep === 2 ? "trigger-sources" : "save-finding")
-        ?.scrollIntoView({ behavior: "instant", block: "center" });
+        .getElementById(`research-guide-${guideStep}`)
+        ?.scrollIntoView({ behavior: "instant", block: "start" });
     });
     return () => cancelAnimationFrame(frame);
   }, [
@@ -883,9 +862,7 @@ export function App() {
             />
             {view === "home" && (
               <div className="mx-auto w-full max-w-3xl space-y-7 pt-6 sm:pt-12">
-                {firstQuestion && !task ? (
-                  <div className="h-56 sm:h-36" aria-hidden="true" />
-                ) : (
+                {!(firstQuestion && !task) && (
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <Identity />
