@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import React, { useState, useEffect, useRef } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   ArrowRight,
   ArrowUp,
@@ -66,6 +67,7 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Tooltip,
@@ -73,7 +75,10 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { WorkspaceTabs } from "@/components/workspace-tabs";
-import { Toaster } from "@/components/ui/sonner";
+import { NotebookMarkdown, NotebookConversation } from "@/components/notebook-content";
+import { NotebookWorkspace, NotebookLibrary } from "@/components/notebook-workspace";
+import { updateFinding, removeNotebookFinding, restoreNotebookFinding } from "./notebook.js";
+import { Toaster, NotificationToast } from "@/components/ui/sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { toast as sonnerToast } from "sonner";
 import {
@@ -103,6 +108,7 @@ import {
   EXAMPLES,
   SAMPLE,
   PAPERS,
+  CARDIAC_REPORT,
   IDEAS,
   parseCSV,
   answer,
@@ -257,18 +263,9 @@ function ResearchGuide({
 }) {
   const id = `research-guide-${step}`;
   if (!open) return children;
-  if (completed && step === 2) return (
-    <div id={id} role="region" aria-label="Research onboarding · step 2 complete" className="overflow-hidden rounded-xl border border-emerald-700/30">
-      <div className="flex items-center gap-3 border-b border-emerald-700/15 bg-emerald-700/5 px-3 py-3" role="status">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-white">
-          <CheckCircle2 className="size-4" />
-        </span>
-        <p className="text-xs font-medium text-emerald-700">2 of 3 · Explore sources · Complete</p>
-      </div>
-      <div className="px-3">{children}</div>
-    </div>
-  );
   const done = saved || completed;
+  const surfaceClass = done ? "bg-emerald-700/5" : "bg-primary/5";
+  const headerClass = done ? "bg-emerald-700/10" : "bg-primary/10";
   const instruction = saved
     ? "Saved. Open Notebook to return to this finding."
     : step === 1
@@ -299,11 +296,11 @@ function ResearchGuide({
           {done ? <CheckCircle2 className="size-4" /> : step}
         </span>
         <div className="min-w-0 space-y-1">
-          <p className="text-xs font-medium text-primary">
+          <p className={cn("text-xs font-medium", done ? "text-emerald-700" : "text-primary")}>
             {saved
-              ? "First research complete"
+              ? "3 of 3 · Save to Notebook · Complete"
               : step === 2
-                ? "2 of 3 · Explore sources"
+                ? `2 of 3 · Explore sources${completed ? " · Complete" : ""}`
                 : step === 3
                   ? "3 of 3 · Save to Notebook"
                   : "First research · 1 of 3"}
@@ -312,7 +309,7 @@ function ResearchGuide({
             id={`${id}-description`}
             className="text-base leading-relaxed text-muted-foreground"
           >
-            {instruction}
+            {completed ? "Sources explored. Open a paper to review the original study." : instruction}
           </p>
         </div>
       </div>
@@ -334,9 +331,9 @@ function ResearchGuide({
     className: cn(
       children.props.className,
       step === 1
-        ? "border-primary/60 ring-4 ring-primary/5"
+        ? cn("border-0 shadow-none", surfaceClass)
         : step === 2
-          ? "rounded-xl border border-primary/60 px-3 ring-4 ring-primary/5"
+          ? cn("rounded-2xl border-0 px-4 sm:px-5 shadow-none", surfaceClass)
           : "",
     ),
     ...(step === 1 || step === 2
@@ -345,8 +342,9 @@ function ResearchGuide({
             <>
               <div
                 className={cn(
-                  "border-b border-primary/15 bg-primary/5 p-3",
-                  step === 1 ? "-mx-4 -mt-4" : "-mx-3 rounded-t-xl",
+                  "p-4 sm:p-5",
+                  headerClass,
+                  step === 1 ? "-mx-4 -mt-4" : "-mx-4 sm:-mx-5 rounded-t-2xl",
                 )}
               >
                 {hint}
@@ -368,14 +366,14 @@ function ResearchGuide({
       {step === 3 ? (
         <div
           className={cn(
-            "overflow-hidden rounded-xl border",
-            "border-primary/60 ring-4 ring-primary/5",
+            "overflow-hidden rounded-2xl border-0",
+            "border-0 shadow-none", surfaceClass,
           )}
         >
-          <div className="border-b border-primary/15 bg-primary/5 p-3">
+          <div className={cn("p-4 sm:p-5", headerClass)}>
             {hint}
           </div>
-          <div className="p-3">{children}</div>
+          <div className="p-4 sm:p-5">{children}</div>
         </div>
       ) : (
         target
@@ -441,14 +439,24 @@ function OnboardingHint({
 }
 
 export function App() {
+  const [desktopNotebook, setDesktopNotebook] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const update = () => setDesktopNotebook(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
   const [view, setView] = useState("home"),
     [records, setRecords] = useSaved("records", []),
-    [books, setBooks] = useSaved("books", []),
+    [books, setBooks] = useSaved("books-v2", []),
     [guide, setGuide] = useState(true);
   const [guidedId, setGuidedId] = useState(null),
     [reviewedId, setReviewedId] = useState(null),
     [noteHint, setNoteHint] = useState(false),
     [showAllHistory, setShowAllHistory] = useState(false);
+  const [chatFindingId, setChatFindingId] = useState(null);
+  const [notebookDetail, setNotebookDetail] = useState(false);
+  const [discussionOpen, setDiscussionOpen] = useState(false);
   const [question, setQuestion] = useState(""),
     [category, setCategory] = useState("literature"),
     [file, setFile] = useState(null),
@@ -467,6 +475,7 @@ export function App() {
     [side, setSide] = useState(false),
     [opened, setOpened] = useState({});
   const input = useRef(),
+    workspaceScroll = useRef(),
     upload = useRef(),
     viewRef = useRef(view);
   viewRef.current = view;
@@ -474,24 +483,35 @@ export function App() {
     book = books.find((b) => b.id === bookId) || books[0],
     saved =
       current && books.some((b) => b.findings.some((f) => f.id === current.id));
+  const chatFinding = book?.findings.find((finding) => finding.id === chatFindingId) || book?.findings.at(-1);
+  useEffect(() => { setDiscussionOpen(false); }, [view, notebookDetail, book?.id]);
   const matchingHistory = records.filter((r) =>
-    r.question.toLowerCase().includes(search.toLowerCase()),
+    r.result.title !== "Notebook follow-up" && r.question.toLowerCase().includes(search.toLowerCase()),
   );
+  const recentTopics = new Map();
+  for (const record of matchingHistory) {
+    const topic = record.question.trim().toLowerCase().replace(/[?.]$/, "");
+    if (!recentTopics.has(topic) || record.id === active) recentTopics.set(topic, record);
+  }
+  const visibleHistory = showAllHistory || search
+    ? matchingHistory
+    : [...recentTopics.values()].slice(0, 5);
   const firstQuestion =
     guide &&
     (!guidedId || (current?.id === guidedId && current.result.needsFile));
   const guidedAnswer =
     guide && current?.id === guidedId && !current?.result.needsFile;
   const guideStep = reviewedId === current?.id || saved ? 3 : 2;
+  const reducedMotion = useReducedMotion();
   useEffect(() => {
-    if (view !== "answer" || !guidedAnswer || modal) return;
-    const frame = requestAnimationFrame(() => {
-      document
-        .getElementById(`research-guide-${guideStep}`)
-        ?.scrollIntoView({ behavior: "instant", block: "start" });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [view, guidedAnswer, current?.id, modal]);
+    const resetKey = "cosci-notebook-empty-demo-v2";
+    if (localStorage.getItem(resetKey)) return;
+    setBooks([]);
+    localStorage.setItem(resetKey, "1");
+  }, []);
+  useEffect(() => {
+    workspaceScroll.current?.scrollTo({ top: 0, behavior: "instant" });
+  }, [view]);
   function restartGuidance() {
     setGuide(true);
     setGuidedId(null);
@@ -505,20 +525,22 @@ export function App() {
     setNoteHint(false);
   }
   const notify = (text, action, type = "success") =>
-    sonnerToast[type](text, {
+    sonnerToast.custom((id) => <NotificationToast text={text} type={type} action={action} onDismiss={() => sonnerToast.dismiss(id)} />, {
       id: "research-notification",
       duration: action ? Infinity : 5500,
-      action: action ? { label: action.label, onClick: action.run } : undefined,
     });
   const nav = (v) => {
+    if (v === "notebook") setNotebookDetail(false);
     viewRef.current = v;
     setView(v);
+    setModal((previous) => ["save", "saved"].includes(previous) ? null : previous);
     setSide(false);
     setOpened({});
-    window.scrollTo(0, 0);
+    workspaceScroll.current?.scrollTo({ top: 0, behavior: "instant" });
   };
   const fresh = () => {
     nav("home");
+    setActive(null);
     if (guide) setGuidedId(null);
     setQuestion("");
     setFile(null);
@@ -665,19 +687,16 @@ export function App() {
     if (containing) {
       setBookId(containing.id);
       setNoteHint(guide);
-      nav("notebook");
-    } else if (books.length === 1) {
-      persistFinding(books[0].id);
+      setModal("saved");
     } else showSaveDialog();
   }
   function persistFinding(destination, title) {
     const id = destination === "new" ? crypto.randomUUID() : destination;
     const existing = books.find((b) => b.id === id);
     if (existing?.findings.some((f) => f.id === current.id)) {
-      setModal(null);
+      setModal("saved");
       setBookId(id);
       setNoteHint(guide);
-      nav("notebook");
       return;
     }
     const finding = { ...current, note: "" };
@@ -697,17 +716,7 @@ export function App() {
     );
     setBookId(id);
     setNoteHint(guide);
-    setModal(null);
-    if (!guidedAnswer)
-      notify(
-        "Saved to " +
-          (existing?.title || title?.trim() || "Research notes") +
-          ".",
-        {
-          label: "Open notebook",
-          run: () => nav("notebook"),
-        },
-      );
+    setModal("saved");
   }
   function save(e) {
     e.preventDefault();
@@ -721,6 +730,7 @@ export function App() {
     setBookId(id);
     setModal(null);
     nav("notebook");
+    setNotebookDetail(true);
   }
   function editNote(id, note) {
     if (id === guidedId && note.trim()) finishGuidance();
@@ -737,6 +747,46 @@ export function App() {
       ),
     );
   }
+  function editFinding(id, contentMarkdown) {
+    setBooks((previous) => updateFinding(previous, book.id, id, { contentMarkdown }));
+    notify("Notebook answer updated. Original research kept.");
+  }
+  function removeFinding(id) {
+    const index = book.findings.findIndex((item) => item.id === id);
+    if (index < 0) return;
+    const removed = book.findings[index];
+    const destinationId = book.id;
+    setBooks((previous) => removeNotebookFinding(previous, destinationId, id));
+    if (chatFinding?.id === id) {
+      setDiscussionOpen(false);
+      setChatFindingId(null);
+    }
+    notify("Answer removed from notebook.", {
+      label: "Undo",
+      run: () => setBooks((previous) => restoreNotebookFinding(previous, destinationId, removed, index)),
+    });
+  }
+  function renameBook(event) {
+    event.preventDefault();
+    if (!name.trim()) return;
+    setBooks((previous) => previous.map((item) => item.id === book.id ? { ...item, title: name.trim() } : item));
+    setModal(null);
+    notify("Notebook renamed.");
+  }
+  function saveNotebookReply(message) {
+    if (message.saved) return;
+    setChatFindingId(chatFinding.id);
+    const finding = {
+      id: crypto.randomUUID(), question: message.question, kind: "literature", note: "",
+      originResearchId: chatFinding.originResearchId || chatFinding.id,
+      sourceFindingId: chatFinding.id, sourceMessageId: message.id,
+      result: { title: "Notebook follow-up", summary: message.answer, sources: chatFinding.result.sources },
+    };
+    setBooks((previous) => updateFinding(previous, book.id, chatFinding.id, {
+      conversation: chatFinding.conversation.map((item) => item.id === message.id ? { ...item, saved: true } : item),
+    }).map((item) => item.id === book.id ? { ...item, findings: [...item.findings, finding] } : item));
+    notify("Response saved to this notebook.");
+  }
   function exportBook() {
     download(
       book.title.replace(/[^a-z0-9 -]/gi, "") + ".md",
@@ -745,6 +795,7 @@ export function App() {
           .map(
             (f) =>
               markdown(f).replace(/^# /, "## ") +
+              (f.contentMarkdown !== undefined && f.result.sources.length ? "\n\n### Sources kept with this answer\n" + f.result.sources.map((source) => `- [${source.title}](${source.url})`).join("\n") : "") +
               (f.note ? "\n\n### My notes\n" + f.note : ""),
           )
           .join("\n\n"),
@@ -844,56 +895,47 @@ export function App() {
       )}
       {current.kind === "literature" && !current.result.scenario && (
         <>
-          <h3>Evidence across experimental models</h3>
-          <p>
-            Gata4, Mef2c and Tbx5 were used to reprogram mouse fibroblasts into
-            cardiomyocyte-like cells in vitro.{" "}
-            <a
-              href={PAPERS[0].url}
-              onClick={() => setReviewedId(current.id)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Ieda et al., 2010
-            </a>
-            .
-          </p>
-          <p>
-            Song and colleagues studied reprogramming with Gata4, Hand2, Mef2c
-            and Tbx5 in the mouse heart.{" "}
-            <a
-              href={PAPERS[1].url}
-              onClick={() => setReviewedId(current.id)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Song et al., 2012
-            </a>
-            .
-          </p>
-          <p>
-            Human fibroblast work includes additional cardiac factors and
-            muscle-specific microRNAs.{" "}
-            <a
-              href={PAPERS[2].url}
-              onClick={() => setReviewedId(current.id)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Nam et al., 2013
-            </a>
-            .
-          </p>
-          <h3>Conclusion</h3>
-          <p>
-            Cardiac marker expression does not establish a mature functional
-            phenotype. Outcomes depend on starting cells and experimental
-            conditions. Compare methods and endpoints in the original papers.
-          </p>
-          <p>
-            An illustrative review of three selected papers, not an exhaustive
-            literature search.
-          </p>
+          <h3>Research overview</h3>
+          <p>{(current.result.report || CARDIAC_REPORT).overview}</p>
+          <h3>Experimental systems at a glance</h3>
+          <Table className="text-xs">
+            <TableHeader>
+              <TableRow>
+                <TableHead>System & study</TableHead>
+                <TableHead>Factors</TableHead>
+                <TableHead>Finding & limitation</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(current.result.report || CARDIAC_REPORT).studies.map((row) => (
+                <TableRow key={row.study}>
+                  <TableCell className="min-w-40 whitespace-normal align-top">
+                    <p className="font-medium">{row.system}</p>
+                    <a href={PAPERS[row.study].url} target="_blank" rel="noreferrer" onClick={() => setReviewedId(current.id)}>
+                      {PAPERS[row.study].author}, {PAPERS[row.study].year}
+                    </a>
+                  </TableCell>
+                  <TableCell className="min-w-40 whitespace-normal align-top">{row.factors}</TableCell>
+                  <TableCell className="min-w-52 whitespace-normal align-top">
+                    <p>{row.finding}</p>
+                    <p className="text-muted-foreground">{row.limit}</p>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {(current.result.report || CARDIAC_REPORT).sections.map((section) => (
+            <section key={section.title} aria-label={section.title}>
+              <h3>{section.title}</h3>
+              {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+              {section.items && <ul>{section.items.map((item) => <li key={item}>{item}</li>)}</ul>}
+              {section.source !== undefined && <p>
+                <a href={PAPERS[section.source].url} target="_blank" rel="noreferrer" onClick={() => setReviewedId(current.id)}>
+                  {PAPERS[section.source].author}, {PAPERS[section.source].year} · Read original study
+                </a>
+              </p>}
+            </section>
+          ))}
         </>
       )}
       {current.kind === "data" && !current.result.needsFile && (
@@ -943,15 +985,135 @@ export function App() {
       )}
     </div>
   );
+  const savePanelContent = current && (
+<form onSubmit={save} className="space-y-6">
+            {desktopNotebook && <div className="space-y-2"><h3 className="text-base font-semibold">Save this answer</h3><p className="text-base leading-relaxed text-muted-foreground">Choose a notebook to keep this answer, its sources and your notes together.</p></div>}
+            <div className="space-y-3">
+              <Label htmlFor="save-notebook">Save to notebook</Label>
+              <Select value={target} onValueChange={setTarget}>
+                <SelectTrigger id="save-notebook" className="h-11 w-full border-0 bg-secondary/70 px-4">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {books.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.title}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="new">Create a new notebook</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {target === "new" && (
+              <div className="space-y-3">
+                <Label htmlFor="notebook-name">Notebook name</Label>
+                <Input
+                  id="notebook-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  maxLength={90}
+                />
+              </div>
+            )}
+            <div className="flex items-start gap-3 rounded-2xl bg-secondary/60 p-5">
+              <FileText className="size-5 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-base font-medium">{current.question}</p>
+                <p className="line-clamp-3 text-base leading-relaxed text-muted-foreground">{current.result.summary}</p>
+                <p className="text-xs text-muted-foreground">
+                  {current.result.sources.length
+                    ? current.result.sources.length + " source links included"
+                    : "Data summary included"}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => setModal(null)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit">
+                <NotebookPen />
+                Save finding
+              </Button>
+            </div>
+          </form>
+  );
+  const notebookPanelContent = current && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 rounded-2xl bg-emerald-700/10 p-4" role="status">
+                <CheckCircle2 className="size-5 shrink-0 text-emerald-700" />
+                <div className="min-w-0">
+                  <p className="text-xs text-emerald-700">Saved to notebook</p>
+                  <p className="text-base font-medium">{book?.title}</p>
+                </div>
+              </div>
+              <section className="space-y-4 rounded-2xl bg-secondary/60 p-5" aria-label="Saved finding preview">
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Your research question</p>
+                  <h3 className="text-base font-semibold leading-relaxed">{current.question}</h3>
+                </div>
+                {book?.findings.find((f) => f.id === current.id)?.contentMarkdown !== undefined ? (
+                  <Accordion type="single" collapsible><AccordionItem value="edited-answer" className="border-0">
+                    <AccordionTrigger className="items-center py-2 text-xs [&>svg]:translate-y-0">Edited answer saved</AccordionTrigger>
+                    <AccordionContent><NotebookMarkdown>{book.findings.find((f) => f.id === current.id).contentMarkdown}</NotebookMarkdown></AccordionContent>
+                  </AccordionItem></Accordion>
+                ) : <p className="text-base leading-relaxed">{current.result.summary}</p>}
+                {(book?.findings.find((f) => f.id === current.id)?.contentMarkdown === undefined && book?.findings.find((f) => f.id === current.id)?.result.report) && (
+                  <Accordion type="single" collapsible>
+                    <AccordionItem value="saved-analysis" className="border-0">
+                      <AccordionTrigger className="items-center py-2 text-xs [&>svg]:translate-y-0">Full analysis saved</AccordionTrigger>
+                      <AccordionContent className="space-y-4 text-base leading-relaxed">
+                        {book.findings.find((f) => f.id === current.id).result.report.sections.map((section) => (
+                          <section key={section.title} className="space-y-2">
+                            <h4 className="font-semibold">{section.title}</h4>
+                            {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                          </section>
+                        ))}
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                )}
+                {current.result.sources.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Sources kept with this answer</p>
+                    <div className="flex flex-wrap gap-2">
+                      {current.result.sources.map((source) => (
+                        <Button key={source.url} asChild variant="secondary" size="sm" className="bg-white text-primary hover:bg-primary/15 hover:text-primary active:bg-primary/20">
+                          <a href={source.url} target="_blank" rel="noreferrer"><BookOpen />{source.author}, {source.year}<ArrowUpRight /></a>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ) : <p className="text-xs text-muted-foreground">Dataset: {current.result.filename}</p>}
+              </section>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="saved-panel-note">Your notes</Label>
+                  <span className="text-xs text-muted-foreground">Saved automatically</span>
+                </div>
+                <Textarea id="saved-panel-note" className="min-h-36 border-transparent bg-secondary/60 text-base" placeholder="What matters for your research? Add an observation or next step…" value={book?.findings.find((f) => f.id === current.id)?.note || ""} onChange={(e) => editNote(current.id, e.target.value)} />
+                <p className="text-xs leading-relaxed text-muted-foreground">Your answer, sources and notes stay together. Changes are saved on this device.</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button onClick={() => { setModal(null); finishGuidance(); nav("notebook"); setNotebookDetail(true); }}><NotebookPen />Open full notebook<ArrowRight /></Button>
+                <Button variant="secondary" onClick={() => setModal(null)}>Back to research</Button>
+              </div>
+            </div>
+  );
   return (
-    <SidebarProvider openMobile={side} onOpenMobileChange={setSide}>
+    <SidebarProvider openMobile={side} onOpenMobileChange={setSide} className="h-svh min-h-0 overflow-hidden bg-[#f3f5f8]">
       <a
         href="#content"
         className="sr-only fixed z-50 rounded-md bg-background px-4 py-3 text-xs focus:not-sr-only focus:top-2 focus:left-2 focus:ring-2 focus:ring-ring"
       >
         Skip to content
       </a>
-      <Sidebar aria-label="Research navigation">
+      <Sidebar aria-label="Research navigation" className="border-r-0">
         <SidebarHeader className="gap-5 px-4 pt-5 pb-3">
           <div className="flex items-center gap-3 px-1">
             <Avatar className="size-8">
@@ -974,17 +1136,16 @@ export function App() {
           </div>
           <Button
             variant="outline"
-            className="w-full justify-start"
+            className="w-full justify-start rounded-md border-0 bg-primary/10 text-primary shadow-none hover:bg-primary/15"
             onClick={fresh}
           >
             <Plus />
             New research
-            <kbd className="ml-auto text-xs text-muted-foreground">Ctrl K</kbd>
           </Button>
           <div className="relative">
-            <Search className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground" />
+            <Search className="pointer-events-none absolute top-3 left-3 size-4 text-primary" />
             <Input
-              className="pl-9"
+              className="h-10 rounded-md border-input bg-transparent pl-9 !text-xs font-medium text-primary placeholder:text-primary shadow-none"
               aria-label="Search research history"
               placeholder="Search research"
               value={search}
@@ -1002,7 +1163,7 @@ export function App() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <SidebarMenuButton
-                          className="h-9"
+                          className="h-9 rounded-xl hover:bg-primary/10 data-[active=true]:bg-white data-[active=true]:text-foreground data-[active=true]:hover:bg-white"
                           isActive={view === "loading"}
                           onClick={() => nav("loading")}
                           data-testid="pending-chat"
@@ -1023,14 +1184,13 @@ export function App() {
                     </Tooltip>
                   </SidebarMenuItem>
                 )}
-                {matchingHistory
-                  .slice(0, showAllHistory || search ? undefined : 5)
+                {visibleHistory
                   .map((r) => (
                     <SidebarMenuItem key={r.id}>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <SidebarMenuButton
-                            className="h-9"
+                            className="h-9 rounded-xl hover:bg-primary/10 data-[active=true]:bg-white data-[active=true]:text-foreground data-[active=true]:hover:bg-white"
                             data-testid="history-chat"
                             isActive={r.id === active && view === "answer"}
                             onClick={() => openRecord(r)}
@@ -1090,7 +1250,7 @@ export function App() {
         <SidebarFooter className="p-4">
           <div className="flex items-center gap-3 px-1 py-2">
             <Avatar className="size-8">
-              <AvatarFallback className="bg-secondary text-xs">
+              <AvatarFallback className="bg-primary/15 text-xs font-semibold text-primary">
                 R
               </AvatarFallback>
             </Avatar>
@@ -1101,9 +1261,12 @@ export function App() {
           </div>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="min-w-0">
-        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b bg-background px-4 sm:px-6">
-          <SidebarTrigger aria-label="Toggle navigation" />
+      <SidebarInset className="m-3 h-[calc(100svh-1.5rem)] min-h-0 min-w-0 flex-1 overflow-hidden rounded-3xl border-0 bg-background shadow-none max-md:m-0 max-md:h-svh max-md:rounded-none">
+        <header className="relative z-20 flex h-16 shrink-0 items-center gap-3 bg-background px-4 sm:px-6">
+          <SidebarTrigger
+            className="size-10 rounded-full text-foreground hover:bg-primary/15 hover:text-primary active:bg-primary/20 [&_svg]:size-4"
+            aria-label="Toggle navigation"
+          />
           <WorkspaceTabs
             className="absolute left-1/2 -translate-x-1/2"
             value={view === "notebook" ? "notebook" : "chat"}
@@ -1121,7 +1284,7 @@ export function App() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                className="ml-auto sm:ml-0"
+                className="ml-auto size-10 rounded-full text-foreground hover:bg-primary/15 hover:text-primary active:bg-primary/20 sm:ml-0 [&_svg]:size-4"
                 variant="ghost"
                 size="icon"
                 aria-label="Help and capabilities"
@@ -1135,7 +1298,8 @@ export function App() {
         </header>
         <div
           id="content"
-          className="min-w-0 flex-1 px-5 py-8 sm:px-8 sm:py-10"
+          ref={workspaceScroll}
+          className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-8", view === "notebook" && books.length > 0 && "xl:overflow-hidden xl:px-0 xl:py-0")}
           tabIndex={-1}
         >
           <div
@@ -1143,7 +1307,7 @@ export function App() {
             id={`workspace-${view === "notebook" ? "notebook" : "chat"}-panel`}
             aria-labelledby={`workspace-${view === "notebook" ? "notebook" : "chat"}-tab`}
             tabIndex={0}
-            className="outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={cn("outline-none focus-visible:ring-2 focus-visible:ring-ring", view === "notebook" && books.length > 0 && "xl:h-full")}
           >
             <Input
               hidden
@@ -1155,7 +1319,7 @@ export function App() {
               onChange={attach}
             />
             {view === "home" && (
-              <div className="mx-auto w-full max-w-3xl space-y-7 pt-6 sm:pt-12">
+              <div className="mx-auto w-full max-w-3xl space-y-7 pt-4 sm:pt-6">
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Identity />
@@ -1185,14 +1349,14 @@ export function App() {
                   onFinish={finishGuidance}
                 >
                   <form
-                    className="space-y-3 overflow-hidden rounded-xl border bg-background p-4 transition-colors focus-within:border-primary"
+                    className="space-y-3 overflow-hidden rounded-2xl border-0 bg-secondary/70 p-4 outline-1 outline-transparent -outline-offset-1 transition-[outline-color] hover:outline-primary/50 focus-within:outline-primary"
                     onSubmit={submit}
                   >
                     <Label htmlFor="question">Your question</Label>
                     <Textarea
                       id="question"
                       ref={input}
-                      className="min-h-28 resize-none rounded-none border-0 bg-transparent p-0 text-base shadow-none focus-visible:ring-0"
+                      className="min-h-28 resize-none rounded-none border-0 bg-transparent p-0 text-base shadow-none hover:outline-none focus-visible:ring-0"
                       aria-describedby={
                         firstQuestion && !task
                           ? "research-guide-1-description"
@@ -1235,7 +1399,7 @@ export function App() {
                       <Button
                         variant="ghost"
                         type="button"
-                        className="text-muted-foreground"
+                        className="text-muted-foreground hover:bg-primary/15 hover:text-primary active:bg-primary/20"
                         onClick={() => upload.current.click()}
                       >
                         <Paperclip />
@@ -1246,6 +1410,7 @@ export function App() {
                           type="button"
                           variant="ghost"
                           size="sm"
+                          className="hover:bg-primary/15 hover:text-primary active:bg-primary/20"
                           onClick={() => {
                             if (file) {
                               setQuestion(EXAMPLES.data[1][0]);
@@ -1296,7 +1461,7 @@ export function App() {
                       ].map(([kind, label, index, Icon]) => (
                         <Button
                           variant="outline"
-                          className="group flex h-full min-h-56 w-full flex-col items-start justify-start gap-4 whitespace-normal rounded-xl border-transparent bg-secondary/60 p-4 text-left font-normal shadow-none transition-colors duration-150 hover:border-primary/25 hover:bg-primary/5 motion-reduce:transition-none"
+                          className="group flex h-full min-h-56 w-full flex-col items-start justify-start gap-4 whitespace-normal rounded-xl border-transparent bg-secondary/60 p-4 text-left font-normal shadow-none transition-colors duration-150 hover:bg-accent active:bg-primary/20 motion-reduce:transition-none"
                           key={label}
                           onClick={() =>
                             useExample(EXAMPLES[kind][index], index, kind)
@@ -1409,11 +1574,13 @@ export function App() {
             {view === "loading" && task && (
               <div className="mx-auto max-w-3xl space-y-8">
                 <QuestionBubble>{task.question}</QuestionBubble>
-                <Card aria-live="polite">
-                  <CardHeader className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Spinner className="size-5 text-primary" />
-                      <Badge variant="secondary">
+                <Card aria-live="polite" className="gap-6 rounded-3xl border-0 bg-secondary/70 py-6 shadow-none sm:py-8">
+                  <CardHeader className="space-y-3 px-5 sm:px-8">
+                    <div className="mb-2 flex items-center gap-3">
+                      <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/10" aria-hidden="true">
+                        <Spinner className="size-6 text-primary" />
+                      </span>
+                      <Badge variant="secondary" className="rounded-full bg-primary/10 px-3 py-1 text-primary">
                         {task.kind === "data"
                           ? "Local data analysis"
                           : "Demo research"}
@@ -1431,14 +1598,15 @@ export function App() {
                       }
                     </h1>
                     <p className="text-base leading-relaxed text-muted-foreground">
-                      The tools are selected for your question. You can keep
-                      working while the answer is prepared.
+                      You can continue working while your answer is prepared.
+                      We’ll let you know when it’s ready.
                     </p>
                   </CardHeader>
-                  <CardContent className="space-y-5">
+                  <CardContent className="space-y-5 px-5 sm:px-8">
                     <Progress
                       value={researchProgress}
                       aria-label="Research progress"
+                      className="h-1.5 bg-primary/10"
                     />
                     <div className="space-y-1">
                       {[
@@ -1451,7 +1619,7 @@ export function App() {
                         <div
                           key={label}
                           className={
-                            "flex min-h-6 items-center gap-3 text-xs " +
+                            "flex min-h-8 items-center gap-3 text-xs " +
                             (i > stage ? "text-muted-foreground" : "")
                           }
                         >
@@ -1468,7 +1636,7 @@ export function App() {
                           <Badge
                             variant="secondary"
                             className={cn(
-                              "ml-auto",
+                              "ml-auto rounded-full bg-primary/10 text-primary",
                               i !== stage && "invisible",
                             )}
                             aria-hidden={i !== stage}
@@ -1479,14 +1647,14 @@ export function App() {
                       ))}
                     </div>
                   </CardContent>
-                  <CardFooter className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => nav("home")}>
+                  <CardFooter className="flex flex-wrap gap-2 px-5 sm:px-8">
+                    <Button variant="secondary" className="h-11 rounded-md bg-white px-5 has-[>svg]:px-5" onClick={() => nav("home")}>
                       Continue working
                       <ArrowRight />
                     </Button>
                     <Button
                       variant="destructive"
-                      className="bg-destructive/10 text-destructive shadow-none hover:bg-destructive/20"
+                      className="h-11 rounded-md bg-destructive/10 px-5 text-destructive shadow-none hover:bg-destructive/20 has-[>svg]:px-5"
                       onClick={() => {
                         setTask(null);
                         if (guide) setGuidedId(null);
@@ -1566,7 +1734,7 @@ export function App() {
                   {!current.result.needsFile && (
                     <div className="space-y-6">
                       <ResearchGuide
-                        open={guidedAnswer && !modal}
+                        open={guidedAnswer && (!modal || ((modal === "save" || modal === "saved") && desktopNotebook))}
                         completed={guideStep === 3}
                         step={2}
                         isData={current.kind === "data"}
@@ -1576,6 +1744,7 @@ export function App() {
                         <Accordion
                           type="single"
                           collapsible
+                          className={cn("rounded-2xl px-5", !guidedAnswer && "bg-secondary/70")}
                           value={opened.sources ? "sources" : ""}
                           onValueChange={(value) => {
                             if (value === "sources") setReviewedId(current.id);
@@ -1585,11 +1754,11 @@ export function App() {
                             }));
                           }}
                         >
-                          <AccordionItem value="sources">
+                          <AccordionItem value="sources" className="border-0">
                             <AccordionTrigger
                               id="trigger-sources"
                               className={cn(
-                                "scroll-mt-72 rounded-md px-3 text-xs",
+                                "scroll-mt-72 rounded-md px-0 py-4 text-xs",
                                 guidedAnswer &&
                                   guideStep === 2 &&
                                   "text-primary",
@@ -1608,7 +1777,6 @@ export function App() {
                             <AccordionContent
                               aria-labelledby="trigger-sources"
                               className="text-base"
-                              rootClassName="data-[state=open]:animate-none"
                             >
                               {current.kind === "data" ? (
                                 <p className="leading-relaxed">
@@ -1627,7 +1795,7 @@ export function App() {
                                       target="_blank"
                                       rel="noreferrer"
                                       onClick={() => setReviewedId(current.id)}
-                                      className="group flex items-start gap-3 rounded-md px-2 py-4 hover:bg-accent"
+                                      className="group flex items-start gap-3 rounded-md px-4 py-4 transition-colors hover:bg-white focus-visible:bg-white focus-visible:outline-2 focus-visible:outline-primary"
                                     >
                                       <div className="flex-1 space-y-2">
                                         <p className="text-base leading-relaxed text-primary group-hover:underline">
@@ -1660,27 +1828,29 @@ export function App() {
                       onValueChange={(value) => setOpened((previous) => ({ ...previous, analysis: value === "full-answer" }))}
                     >
                       <AccordionItem value="full-answer" className="border-0">
-                        {!opened.analysis && (
-                          <div className="relative mb-3 h-44 overflow-hidden" aria-hidden="true" inert="">
+                          <motion.div
+                            initial={false}
+                            animate={{ height: opened.analysis ? 0 : 176, opacity: opened.analysis ? 0 : 1 }}
+                            transition={{ duration: reducedMotion ? 0 : 0.2, ease: "easeOut" }}
+                            className="relative overflow-hidden" aria-hidden="true" inert="">
                             <div className="pointer-events-none">{answerDetails}</div>
                             <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background via-background/70 to-transparent" />
-                          </div>
-                        )}
+                          </motion.div>
                         <AccordionTrigger className={cn(
                           buttonVariants({ variant: "outline" }),
-                          "group relative z-10 mx-auto -mt-3 h-11 !w-auto flex-none justify-center gap-3 rounded-full border-foreground/25 bg-background px-6 text-xs font-semibold shadow-sm hover:bg-secondary hover:no-underline [&>svg]:text-foreground",
+                          "group relative z-10 mx-auto mt-2 h-11 !w-auto flex-none items-center justify-center gap-3 rounded-md border-0 bg-secondary px-6 py-0 text-xs font-semibold shadow-none hover:bg-primary/10 hover:no-underline [&>svg]:translate-y-0 [&>svg]:text-foreground",
                         )}>
                           <span className="flex items-center gap-2">
                             <span className="group-data-[state=open]:hidden">Read full analysis</span>
                             <span className="hidden group-data-[state=open]:inline">Collapse analysis</span>
                           </span>
                         </AccordionTrigger>
-                        <AccordionContent className="pt-6">{answerDetails}</AccordionContent>
+                        <AccordionContent className="pt-6" style={{ animationDuration: reducedMotion ? "0ms" : "500ms", animationTimingFunction: "cubic-bezier(.4,0,.2,1)" }}>{answerDetails}</AccordionContent>
                       </AccordionItem>
                     </Accordion>
                       <footer className="flex flex-wrap items-center gap-2">
                         <ResearchGuide
-                          open={guidedAnswer && !modal}
+                          open={guidedAnswer && (!modal || ((modal === "save" || modal === "saved") && desktopNotebook))}
                           step={3}
                           saved={saved}
                           onFinish={finishGuidance}
@@ -1714,11 +1884,10 @@ export function App() {
                             )}
                             <Button
                               id="save-finding"
-                              className={guidedAnswer ? "ml-7" : undefined}
-                              variant={saved ? "outline" : "default"}
+                  className={cn(guidedAnswer && "ml-7", saved && "border-0 bg-white text-primary shadow-none hover:bg-accent")}
+                              variant={saved ? "secondary" : "default"}
                               onClick={() => {
                                 openSave();
-                                if (saved) finishGuidance();
                               }}
                             >
                               {saved ? <CheckCircle2 /> : <NotebookPen />}
@@ -1824,7 +1993,8 @@ export function App() {
               </div>
             )}
             {view === "notebook" && (
-              <div className="mx-auto max-w-5xl space-y-8">
+              <div className={cn("mx-auto", books.length ? "flex min-h-0 flex-col xl:h-full" : "max-w-5xl space-y-8")}>
+                {!books.length && (
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="space-y-2">
                     <h1 className="text-2xl font-semibold tracking-tight">
@@ -1834,7 +2004,8 @@ export function App() {
                       Findings, sources and your own thinking.
                     </p>
                   </div>
-                  <Button
+                  {books.length > 0 && <Button
+                    className="rounded-md"
                     onClick={() => {
                       setName("");
                       setModal("new-book");
@@ -1842,200 +2013,44 @@ export function App() {
                   >
                     <Plus />
                     New notebook
-                  </Button>
+                  </Button>}
                 </div>
+                )}
                 {!books.length ? (
-                  <Card>
-                    <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
-                      <NotebookPen className="size-8 text-muted-foreground" />
-                      <h2 className="text-2xl font-semibold">
-                        Keep your first finding
+                  <section aria-label="Empty notebook" className="flex min-h-[60svh] flex-col items-center justify-center px-4 py-12 text-center sm:py-16">
+                      <div className="mb-6 flex size-20 items-center justify-center rounded-full bg-primary/10" aria-hidden="true">
+                        <NotebookPen className="size-8 text-primary" strokeWidth={1.5} />
+                      </div>
+                      <h2 className="max-w-md text-2xl font-semibold tracking-tight">
+                        Keep useful findings together
                       </h2>
-                      <p className="max-w-md text-base leading-relaxed text-muted-foreground">
-                        Save an answer from Chat to keep it with its sources.
-                        Add your notes and return whenever you’re ready.
+                      <p className="mt-3 max-w-md text-base leading-relaxed text-muted-foreground">
+                        Start in Chat, then save an answer and its sources here.
+                        Add your notes and build on what you find.
                       </p>
-                      <Button onClick={fresh}>
-                        Start your first research
+                      <Button className="mt-7 h-11 rounded-md px-6 has-[>svg]:px-6" onClick={fresh}>
+                        Start research
                         <ArrowRight />
                       </Button>
-                    </CardContent>
-                  </Card>
+                  </section>
                 ) : (
-                  <div className="grid items-start gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
-                    <aside aria-label="Notebook list" className="space-y-3">
-                      <Input
-                        aria-label="Search notebooks"
-                        placeholder="Find a notebook"
-                        value={bookSearch}
-                        onChange={(e) => setBookSearch(e.target.value)}
-                      />
-                      <div className="flex flex-col gap-1">
-                        {books
-                          .filter((b) =>
-                            b.title
-                              .toLowerCase()
-                              .includes(bookSearch.toLowerCase()),
-                          )
-                          .map((b) => (
-                            <Button
-                              key={b.id}
-                              variant={book.id === b.id ? "secondary" : "ghost"}
-                              aria-pressed={book.id === b.id}
-                              className="h-auto min-h-12 justify-start px-3 py-3"
-                              onClick={() => setBookId(b.id)}
-                            >
-                              <NotebookPen className="shrink-0" />
-                              <span className="min-w-0 text-left">
-                                <span className="block truncate">
-                                  {b.title}
-                                </span>
-                                <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                                  {b.findings.length}{" "}
-                                  {b.findings.length === 1
-                                    ? "finding"
-                                    : "findings"}
-                                </span>
-                              </span>
-                            </Button>
-                          ))}
-                      </div>
-                      {bookSearch &&
-                        !books.some((b) =>
-                          b.title
-                            .toLowerCase()
-                            .includes(bookSearch.toLowerCase()),
-                        ) && (
-                          <p className="text-xs text-muted-foreground">
-                            No matching notebooks.
-                          </p>
-                        )}
-                    </aside>
-                    <section className="min-w-0 space-y-6">
-                      <div className="flex flex-wrap items-start justify-between gap-3 border-b pb-5">
-                        <div className="space-y-2">
-                          <h2 className="text-2xl font-semibold tracking-tight">
-                            {book.title}
-                          </h2>
-                          <p className="text-xs leading-relaxed text-muted-foreground">
-                            {book.findings.length} saved{" "}
-                            {book.findings.length === 1
-                              ? "finding"
-                              : "findings"}{" "}
-                            · Changes saved on this device
-                          </p>
-                        </div>
-                        <Button variant="outline" onClick={exportBook}>
-                          <Download />
-                          Export notes
-                        </Button>
-                      </div>
-                      {!book.findings.length && (
-                        <div className="space-y-3 py-8">
-                          <h3 className="text-base font-semibold">
-                            Ready for your first finding
-                          </h3>
-                          <p className="text-base text-muted-foreground">
-                            Open an answer in Chat and select “Save to
-                            Notebook”.
-                          </p>
-                          <Button variant="outline" onClick={fresh}>
-                            Start research
-                            <ArrowRight />
-                          </Button>
-                        </div>
-                      )}
-                      {[...book.findings].reverse().map((f) => (
-                        <Card key={f.id} data-testid="saved-finding">
-                          <CardHeader>
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <Badge variant="secondary">
-                                <FileText className="size-3" />
-                                Saved finding
-                              </Badge>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openRecord(f)}
-                              >
-                                Open research
-                                <ArrowUpRight />
-                              </Button>
-                            </div>
-                            <h3 className="break-words text-base font-semibold leading-relaxed">
-                              {f.question}
-                            </h3>
-                          </CardHeader>
-                          <CardContent className="space-y-5">
-                            <p className="text-base leading-relaxed">
-                              {f.result.summary}
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {f.result.sources.map((s) => (
-                                <Button
-                                  asChild
-                                  variant="outline"
-                                  size="sm"
-                                  key={s.url}
-                                >
-                                  <a
-                                    href={s.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    <BookOpen />
-                                    {s.author}, {s.year}
-                                    <ArrowUpRight />
-                                  </a>
-                                </Button>
-                              ))}
-                              {f.result.filename && (
-                                <Badge variant="outline">
-                                  <Database className="size-3" />
-                                  {f.result.filename}
-                                </Badge>
-                              )}
-                            </div>
-                            {noteHint && f.id === guidedId && (
-                              <OnboardingHint
-                                title="Add your next step"
-                                id={"note-guidance-" + f.id}
-                                onSkip={finishGuidance}
-                              >
-                                Add an observation below. Your notes save
-                                automatically; you can return to this finding
-                                anytime.
-                              </OnboardingHint>
-                            )}
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between gap-2">
-                                <Label htmlFor={"note-" + f.id}>
-                                  Your notes
-                                </Label>
-                                <span className="text-xs text-muted-foreground">
-                                  Saved automatically
-                                </span>
-                              </div>
-                              <Textarea
-                                id={"note-" + f.id}
-                                aria-label={"Notes for " + f.question}
-                                aria-describedby={
-                                  noteHint && f.id === guidedId
-                                    ? "note-guidance-" + f.id
-                                    : undefined
-                                }
-                                className="min-h-24 text-base"
-                                placeholder="Add an observation or next step…"
-                                value={f.note}
-                                onChange={(e) => editNote(f.id, e.target.value)}
-                              />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </section>
-                  </div>
+                  notebookDetail ? <NotebookWorkspace
+                    books={books} book={book} finding={chatFinding}
+                    onBook={(id) => { setBookId(id); setChatFindingId(null); }}
+                    onFinding={setChatFindingId}
+                    discussionOpen={discussionOpen}
+                    onDiscuss={(id) => { setChatFindingId(id); setDiscussionOpen(true); }}
+                    onNew={() => { setName(""); setModal("new-book"); }}
+                    onRename={() => { setName(book.title); setModal("rename-book"); }}
+                    onExport={exportBook} onResearch={fresh}
+                    onOpen={(finding) => openRecord(records.find((record) => record.id === (finding.originResearchId || finding.id)) || finding)}
+                    onEdit={editFinding} onNote={editNote} onRemove={removeFinding}
+                    onConversation={(conversation) => setBooks((previous) => updateFinding(previous, book.id, chatFinding.id, { conversation }))}
+                    onSaveReply={saveNotebookReply}
+                    onBack={() => setNotebookDetail(false)}
+                  /> : <NotebookLibrary books={books} onOpen={(id) => { setBookId(id); setChatFindingId(null); setNotebookDetail(true); }} onNew={() => { setName(""); setModal("new-book"); }} />
                 )}
+
               </div>
             )}
           </div>
@@ -2047,6 +2062,39 @@ export function App() {
           />
         </div>
       </SidebarInset>
+      <AnimatePresence initial={false}>
+        {(modal === "save" || modal === "saved") && desktopNotebook && current && (
+          <motion.div
+            key="notebook-panel"
+            data-notebook-panel-slot=""
+            className="shrink-0 overflow-hidden"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 392, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: reducedMotion ? 0 : 0.26, ease: [0.32, 0.72, 0, 1] }}
+          >
+        <aside aria-label="Notebook panel" className="my-3 mr-3 flex h-[calc(100svh-1.5rem)] w-[380px] shrink-0 flex-col overflow-hidden rounded-3xl bg-background">
+          <div className="flex h-16 shrink-0 items-center justify-between gap-3 px-5">
+            <h2 className="flex items-center gap-2 text-base font-semibold"><NotebookPen className="size-4 text-primary" />Notebook</h2>
+            <Button variant="ghost" size="icon" className="size-10 rounded-full text-foreground hover:bg-primary/15 hover:text-primary active:bg-primary/20 [&_svg]:size-4" aria-label="Close Notebook panel" onClick={() => setModal(null)}><X /></Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">{modal === "save" ? savePanelContent : notebookPanelContent}</div>
+        </aside>
+          </motion.div>
+        )}
+        {discussionOpen && view === "notebook" && notebookDetail && desktopNotebook && chatFinding && <motion.div key="finding-discussion-panel" className="shrink-0 overflow-hidden" initial={{width:0,opacity:0}} animate={{width:392,opacity:1}} exit={{width:0,opacity:0}} transition={{duration:reducedMotion ? 0 : 0.26,ease:[0.32,0.72,0,1]}}>
+          <aside aria-label="Finding discussion sidebar" className="my-3 mr-3 h-[calc(100svh-1.5rem)] w-[380px] overflow-hidden rounded-3xl bg-background">
+            <NotebookConversation key={`${book.id}-${chatFinding.id}`} finding={chatFinding} workspace detached onClose={() => setDiscussionOpen(false)} onConversation={(conversation) => setBooks((previous) => updateFinding(previous, book.id, chatFinding.id, {conversation}))} onSaveReply={saveNotebookReply} />
+          </aside>
+        </motion.div>}
+      </AnimatePresence>
+      <Sheet open={discussionOpen && view === "notebook" && notebookDetail && !desktopNotebook} onOpenChange={setDiscussionOpen}>
+        <SheetContent side="right" showCloseButton={false} className="w-full border-0 p-0 sm:max-w-md">
+          <SheetTitle className="sr-only">Discuss this finding</SheetTitle>
+          <SheetDescription className="sr-only">Conversation about the selected saved answer.</SheetDescription>
+          {chatFinding && <NotebookConversation key={`${book.id}-${chatFinding.id}`} finding={chatFinding} workspace detached onClose={() => setDiscussionOpen(false)} onConversation={(conversation) => setBooks((previous) => updateFinding(previous, book.id, chatFinding.id, {conversation}))} onSaveReply={saveNotebookReply} />}
+        </SheetContent>
+      </Sheet>
       {modal === "sources" && (
         <Modal
           title="Your research sources"
@@ -2137,68 +2185,25 @@ export function App() {
           </DialogFooter>
         </Modal>
       )}
-      {modal === "save" && (
-        <Modal
-          title="Keep this finding"
-          subtitle="The answer and its sources will stay together."
-          onClose={() => setModal(null)}
-        >
-          <form onSubmit={save} className="space-y-5">
-            <div className="space-y-3">
-              <Label htmlFor="save-notebook">Save to notebook</Label>
-              <Select value={target} onValueChange={setTarget}>
-                <SelectTrigger id="save-notebook" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {books.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.title}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="new">Create a new notebook</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {target === "new" && (
-              <div className="space-y-3">
-                <Label htmlFor="notebook-name">Notebook name</Label>
-                <Input
-                  id="notebook-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  maxLength={90}
-                />
-              </div>
-            )}
-            <div className="flex items-start gap-3 rounded-md bg-muted p-4">
-              <FileText className="size-5 shrink-0" />
-              <div className="space-y-1">
-                <p className="text-base font-medium">{current.result.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {current.result.sources.length
-                    ? current.result.sources.length + " source links included"
-                    : "Data summary included"}
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => setModal(null)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit">
-                <NotebookPen />
-                Save finding
-              </Button>
-            </DialogFooter>
-          </form>
-        </Modal>
+      {(modal === "save" || modal === "saved") && !desktopNotebook && (
+        <Sheet open onOpenChange={(open) => { if (!open) setModal(null); }}>
+          <SheetContent side="right" className="w-full overflow-y-auto border-0 bg-background p-6 sm:max-w-md">
+            <SheetHeader className="px-0 pt-2 pb-6">
+              <SheetTitle className="text-2xl">{modal === "saved" ? "Your finding in Notebook" : "Keep this finding"}</SheetTitle>
+              <SheetDescription className="text-base">{modal === "saved" ? "Keep the evidence and add your own observations." : "The answer and its sources will stay together."}</SheetDescription>
+            </SheetHeader>
+          {modal === "saved" ? (
+            notebookPanelContent
+          ) : savePanelContent}
+          </SheetContent>
+        </Sheet>
       )}
+      {modal === "rename-book" && book && <Modal title="Rename notebook" subtitle="Update the name of this collection." onClose={() => setModal(null)}>
+        <form onSubmit={renameBook} className="space-y-5">
+          <div className="space-y-3"><Label htmlFor="rename-notebook-name">Notebook name</Label><Input id="rename-notebook-name" autoFocus required maxLength={90} value={name} onChange={(event) => setName(event.target.value)} /></div>
+          <DialogFooter><Button variant="secondary" type="button" onClick={() => setModal(null)}>Cancel</Button><Button type="submit" disabled={!name.trim()}>Save name</Button></DialogFooter>
+        </form>
+      </Modal>}
       {modal === "new-book" && (
         <Modal
           title="Start a research notebook"
@@ -2233,7 +2238,7 @@ export function App() {
           </form>
         </Modal>
       )}
-      <Toaster position="bottom-right" closeButton />
+      <Toaster position="bottom-center" />
     </SidebarProvider>
   );
 }

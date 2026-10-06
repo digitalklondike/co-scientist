@@ -47,7 +47,7 @@ export function WorkspaceTabs({
       <TabsList
         ref={listRef}
         aria-label="Research workspace"
-        className="relative isolate grid w-48 grid-cols-2 group-data-[orientation=horizontal]/tabs:h-10 max-sm:group-data-[orientation=horizontal]/tabs:h-13 min-[360px]:w-56"
+        className="relative isolate grid w-48 grid-cols-2 group-data-[orientation=horizontal]/tabs:h-10 max-sm:group-data-[orientation=horizontal]/tabs:h-13 min-[360px]:w-60 sm:w-64"
       >
         {indicator && (
           <motion.div
@@ -64,7 +64,7 @@ export function WorkspaceTabs({
           />
         )}
         <TabsTrigger
-          className="relative z-10 transition-colors data-[state=active]:bg-transparent group-data-[variant=default]/tabs-list:data-[state=active]:shadow-none"
+          className="relative z-10 transition-colors hover:text-primary [&:hover_span]:text-primary data-[state=active]:bg-transparent group-data-[variant=default]/tabs-list:data-[state=active]:shadow-none"
           value="chat"
           id="workspace-chat-tab"
           aria-controls="workspace-chat-panel"
@@ -73,7 +73,7 @@ export function WorkspaceTabs({
           Chat
         </TabsTrigger>
         <TabsTrigger
-          className="relative z-10 transition-colors data-[state=active]:bg-transparent group-data-[variant=default]/tabs-list:data-[state=active]:shadow-none"
+          className="relative z-10 transition-colors hover:text-primary [&:hover_span]:text-primary data-[state=active]:bg-transparent group-data-[variant=default]/tabs-list:data-[state=active]:shadow-none"
           value="notebook"
           id="workspace-notebook-tab"
           aria-controls="workspace-notebook-panel"

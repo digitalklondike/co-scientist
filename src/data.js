@@ -74,6 +74,22 @@ export const PAPERS = [
 ];
 export const SUMMARY =
   "GATA4, MEF2C and TBX5 (GMT) form a foundational combination for direct cardiac reprogramming in mouse fibroblasts. Human-cell studies use additional factors or microRNAs; the same recipe should not be assumed to work across models.";
+export const CARDIAC_REPORT = {
+  overview: "The central comparison is between experimental systems, not just factor names. This example separates human-cell evidence, mouse-cell experiments and mouse injury models, then identifies what would be needed to compare their outcomes. It covers three original studies; it is not a current or exhaustive literature review.",
+  studies: [
+    { study: 0, system: "Mouse fibroblasts · In vitro", factors: "Gata4, Mef2c, Tbx5 (GMT)", finding: "Conversion into cardiomyocyte-like cells", limit: "Cell-culture findings do not establish repair in humans." },
+    { study: 1, system: "Mouse cells and injured heart · In vitro / In vivo", factors: "Gata4, Hand2, Mef2c, Tbx5 (GHMT)", finding: "Cardiac-like cells and improved function in a mouse injury model", limit: "An animal outcome is not evidence of clinical efficacy." },
+    { study: 2, system: "Human fibroblasts · In vitro", factors: "GATA4, HAND2, TBX5, myocardin; miR-1 and miR-133", finding: "Cardiac gene expression and developing cardiac-like properties", limit: "Most cells remained partially reprogrammed." },
+  ],
+  sections: [
+    { title: "Human evidence", paragraphs: ["Nam and colleagues studied neonatal and adult human fibroblasts using four transcription factors and two muscle-specific microRNAs. The combination activated cardiac markers and reduced fibroblast gene expression. This is a different experimental recipe from the mouse GMT combination.", "With extended culture, some cells developed sarcomeric organization and calcium transients; spontaneous contraction was observed in a small subset. Most cells remained partially reprogrammed. The study therefore supports a transition toward a cardiac fate, rather than uniform production of mature cardiomyocytes."], source: 2 },
+    { title: "Animal and in vivo evidence", paragraphs: ["Song and colleagues used GHMT to generate beating cardiac-like cells from adult mouse fibroblasts in culture. They also delivered these factors to dividing non-cardiomyocytes in mice after myocardial infarction, reporting improved cardiac function and reduced adverse ventricular remodelling.", "This adds an organ-level outcome to cellular observations. However, species, injury context, delivery and the surrounding heart tissue all differ from a human fibroblast culture. The mouse findings cannot be read as a direct estimate of how a human-cell protocol will perform."], source: 1 },
+    { title: "In vitro evidence", paragraphs: ["Ieda and colleagues identified GMT as a combination capable of directly converting postnatal mouse cardiac and dermal fibroblasts into cardiomyocyte-like cells. The reported changes included cardiac gene expression and functional properties, without an intervening pluripotent state.", "This provides a starting point for comparing factor combinations. It does not make GMT a universal recipe: a comparison with the human study must account for cell origin, culture conditions, factor delivery and the endpoints used to define conversion."], source: 0 },
+    { title: "What counts as a convincing result?", paragraphs: ["Treat cell identity and functional maturation as separate questions. Cardiac markers indicate activation of a gene program; organized sarcomeres, calcium handling, electrical activity and contraction address different aspects of function. An improvement in an injured animal heart is a further, distinct outcome.", "For a useful comparison, extract the starting cell population, factor combination, delivery method, observation period and measured endpoints from each original paper. Keep denominators and assay definitions alongside any reported efficiency. These selected studies do not form a matched head-to-head dataset."], items: ["Identity: cardiac markers alongside loss of fibroblast characteristics.", "Structure: sarcomeric organization and cell morphology.", "Function: calcium dynamics, action potentials and contractile activity.", "Model outcome: changes in cardiac function in the tested animal context."] },
+    { title: "Evidence gaps and next questions", paragraphs: ["The practical gap is not simply finding more factors. It is determining whether a protocol produces reproducible, sufficiently mature cells in the relevant starting population. The three studies use different systems, so their outcomes should stay separate until methods and endpoints can be aligned."], items: ["Which endpoints were measured in both mouse and human experiments?", "How much of the observed population reached a functional cardiac-like state?", "What changes when the same factors are tested in a different fibroblast population?", "Which findings have been replicated in more recent, independent studies?"] },
+    { title: "Conclusion", paragraphs: ["GMT is a foundational mouse-cell example; GHMT adds mouse in vivo evidence; the included human study uses additional factors and microRNAs and reports incomplete maturation in most cells. The useful result is a map of these differences, not a single interchangeable protocol.", "Use the original papers to inspect the experimental details, then keep this comparison and its citations in Notebook with your own observations. A broader research report would need additional literature and, for computational claims, actual datasets and analysis results."] },
+  ],
+};
 export const IDEAS = [
   [
     "Separate cell identity from functional maturation",
@@ -199,6 +215,7 @@ export function answer(task) {
   return {
     title: "Key factors for cardiac reprogramming",
     summary: SUMMARY,
+    report: CARDIAC_REPORT,
     sources: PAPERS,
     unrelated: !/cardio|fibroblast|reprogram|gata|mef2|tbx5|cardiac/i.test(
       task.question,
@@ -216,8 +233,13 @@ export function download(name, body) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function markdown(r) {
+  if (r.contentMarkdown !== undefined) return r.contentMarkdown;
   return (
     `# ${r.question}\n\n${r.result.summary}\n\n` +
+    (r.result.report ? `## Overview\n\n${r.result.report.overview}\n\n` +
+      "## Experimental systems\n\n| System | Factors | Finding | Limitation | Study |\n| --- | --- | --- | --- | --- |\n" +
+      r.result.report.studies.map((row) => `| ${row.system} | ${row.factors} | ${row.finding} | ${row.limit} | ${PAPERS[row.study].author}, ${PAPERS[row.study].year} |`).join("\n") + "\n\n" +
+      r.result.report.sections.map((section) => `## ${section.title}\n\n${section.paragraphs.join("\n\n")}\n\n${section.items ? section.items.map((item) => `- ${item}`).join("\n") + "\n\n" : ""}${section.source !== undefined ? `Reference: ${PAPERS[section.source].author}, ${PAPERS[section.source].year}\n\n` : ""}`).join("") : "") +
     (r.result.sources.length
       ? r.result.sources.map((s) => `- [${s.title}](${s.url})`).join("\n")
       : `Source: ${r.result.filename || "No dataset"}`)

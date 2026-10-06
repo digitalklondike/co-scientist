@@ -3,6 +3,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --shadow-2xs: none;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --shadow-2xl: none;
   --font-sans: "Inter Variable", Inter, Arial, sans-serif;
   --text-xs: 12px;
   --text-sm: 12px;
@@ -43,7 +50,7 @@
 }
 :root {
   color-scheme: light;
-  --radius: 0.625rem;
+  --radius: 0.875rem;
   --background: #ffffff;
   --foreground: #243746;
   --card: #ffffff;
@@ -56,17 +63,17 @@
   --secondary-foreground: #243746;
   --muted: #f6f8fa;
   --muted-foreground: #526777;
-  --accent: #edf5fa;
+  --accent: #d9e8f2;
   --accent-foreground: #00598f;
   --destructive: #b42318;
   --border: #dce3e9;
   --input: #c1cdd7;
   --ring: #0067a5;
-  --sidebar: #f8fafb;
+  --sidebar: #f3f5f8;
   --sidebar-foreground: #243746;
   --sidebar-primary: #0067a5;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #edf5fa;
+  --sidebar-accent: #d9e8f2;
   --sidebar-accent-foreground: #00598f;
   --sidebar-border: #dce3e9;
   --sidebar-ring: #0067a5;
@@ -111,6 +118,10 @@
   .research-prose a:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 3px;
+    border-radius: 2px;
+  }
+  .research-prose a:hover {
+    background: var(--accent);
     border-radius: 2px;
   }
 }
