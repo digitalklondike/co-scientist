@@ -41,3 +41,8 @@ Research content remains prepared examples; CSV statistics are real local calcul
 During demo preparation, the shadcn progress bar fills continuously over time. Named stages change separately; cancellation clears the timer and the next task starts from zero. Reduced-motion preferences suppress the visual transition.
 
 
+
+## Contextual onboarding revision — 2026-10-06
+The sticky guide Card described above is replaced by the shared ResearchGuide coachmark on registry-installed shadcn Popover. All stages share identical white appearance, padding, 12px step metadata and 16px title/body, with a Radix arrow pointing at their real action: question composer → Sources used → Save to Notebook. The actual controls perform the work; the hint has no duplicate Next/Review/Save button. Literature step 2 remains active until an original paper link is opened; local CSV advances after file calculation details are opened. Opening a link is not evidence verification. Saving is optional and available without the source step. After saving, the same coachmark confirms success next to Open in Notebook. Explicit dismissal/Escape ends guidance, while outside interaction leaves it available. It does not trap or steal focus. Collisions avoid the 64px app header and fit 320px screens; examples stay in the composer. Demo reload resets guidance and preserves work.
+
+References: Canva https://mobbin.com/flows/d3237fe5-9e7c-47ec-89e6-56ccfd951dc1; Miro https://mobbin.com/flows/8b9e6af8-0a9c-422f-9285-73e5c96183fb; NotebookLM/Gemini Notebook https://mobbin.com/flows/24e7f24a-146f-43da-a6cc-ee77e5232f09. Layout/counter/anchoring are observed reference patterns. Progression after real actions is our proposed adaptation for this prototype.

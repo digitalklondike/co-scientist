@@ -27,6 +27,12 @@ import {
 } from "lucide-react";
 import "@fontsource-variable/inter";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { Popover as PopoverPrimitive } from "radix-ui";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -192,73 +198,92 @@ function Notice({ children }) {
 }
 
 function ResearchGuide({
-  id,
+  children,
+  open,
   step,
   saved,
   isData,
-  sourceCount,
-  onExplore,
-  onSave,
+  sourcesOpen,
   onFinish,
 }) {
+  const id = `research-guide-${step}`;
+  const title = saved
+    ? "Your finding is saved."
+    : step === 1
+      ? "Ask your first research question"
+      : step === 2
+        ? isData
+          ? "Look at the data behind your answer"
+          : "Look at the original evidence"
+        : "Keep a useful finding";
+  const description = saved
+    ? "Open Notebook to find this answer and its sources. You can add your own notes there."
+    : step === 1
+      ? isData
+        ? "Tell me which columns to explore and what to calculate. Then send your question."
+        : "Describe what you’re studying and what you want to find out. You can edit an example to get started."
+      : step === 2
+        ? isData
+          ? "Open Sources used to see the file and how the calculation was made."
+          : sourcesOpen
+            ? "Open a paper below to inspect its methods and experimental model."
+            : "Open Sources used below, then choose a paper to see the original study."
+        : "Save this answer with its sources to Notebook so you can return to it. This step is optional.";
   return (
-    <section
-      id={id}
-      aria-label="Research onboarding"
-      className={step > 1 ? "sticky top-20 z-10" : undefined}
-    >
-      <Card className="min-h-28 gap-3 px-4 py-4 shadow-none sm:px-5">
+    <Popover open={open} modal={false}>
+      <PopoverAnchor asChild>{children}</PopoverAnchor>
+      <PopoverContent
+        id={id}
+        aria-label="Research onboarding"
+        aria-labelledby={`${id}-title`}
+        aria-describedby={`${id}-description`}
+        side="top"
+        align={step === 3 ? "start" : "center"}
+        sideOffset={12}
+        collisionPadding={{ top: 80, right: 20, bottom: 20, left: 20 }}
+        avoidCollisions={false}
+        className="z-10 w-[min(320px,calc(100vw-40px))] space-y-3 rounded-xl p-5 motion-reduce:animate-none"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={onFinish}
+      >
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-medium text-primary" aria-live="polite">
-            {saved
-              ? "Research onboarding · Finding saved"
-              : `Research onboarding · Step ${step} of 3${step === 3 ? " · Optional" : ""}`}
+          <p className="text-xs text-muted-foreground" aria-live="polite">
+            First research · {step}/3{step === 3 && !saved ? " · Optional" : ""}
           </p>
           <Button
             variant="ghost"
-            size="sm"
-            className="-mr-2 shrink-0 text-muted-foreground"
+            size="icon"
+            className="-mr-2 -my-2 shrink-0 text-muted-foreground"
+            aria-label={saved ? "Finish onboarding" : "Skip onboarding"}
             onClick={onFinish}
           >
-            {saved || step === 3 ? "Finish guide" : "Skip guide"}
+            <X />
           </Button>
         </div>
-        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
-          <h2
-            className="text-base font-semibold leading-snug"
-            aria-live="polite"
-          >
-            {saved
-              ? "Your answer and sources are saved in Notebook."
-              : step === 1
-                ? isData
-                  ? "Tell me which columns to explore and what to calculate."
-                  : "Start with a question about your research."
-                : step === 2
-                  ? isData
-                    ? "Next: explore the data behind your answer."
-                    : "Next: review the evidence behind your answer."
-                  : "Keep this answer and its sources in Notebook."}
-          </h2>
-          {step > 1 && (
-            <Button
-              className="shrink-0"
-              onClick={step === 2 ? onExplore : onSave}
-            >
-              {step === 2 ? <BookOpen /> : <NotebookPen />}
-              {saved
-                ? "Open Notebook"
-                : step === 2
-                  ? isData
-                    ? "Review file details"
-                    : `Review ${sourceCount} papers`
-                  : "Save to Notebook"}
-              <ArrowRight />
-            </Button>
-          )}
-        </div>
-      </Card>
-    </section>
+        <h2
+          id={`${id}-title`}
+          className="text-base font-semibold leading-snug"
+          aria-live="polite"
+        >
+          {title}
+        </h2>
+        <p
+          id={`${id}-description`}
+          className="text-base leading-relaxed text-muted-foreground"
+          aria-live="polite"
+        >
+          {description}
+        </p>
+        <PopoverPrimitive.Arrow
+          aria-hidden="true"
+          className="fill-popover stroke-border"
+          width={14}
+          height={7}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -374,6 +399,24 @@ export function App() {
     (!guidedId || (current?.id === guidedId && current.result.needsFile));
   const guidedAnswer =
     guide && current?.id === guidedId && !current?.result.needsFile;
+  const guideStep = reviewedId === current?.id || saved ? 3 : 2;
+  useEffect(() => {
+    if (view !== "answer" || !guidedAnswer || modal) return;
+    const frame = requestAnimationFrame(() => {
+      document
+        .getElementById(guideStep === 2 ? "trigger-sources" : "save-finding")
+        ?.scrollIntoView({ behavior: "instant", block: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    view,
+    guidedAnswer,
+    current?.id,
+    guideStep,
+    saved,
+    modal,
+    opened.sources,
+  ]);
   function restartGuidance() {
     setGuide(true);
     setGuidedId(null);
@@ -841,17 +884,7 @@ export function App() {
             {view === "home" && (
               <div className="mx-auto w-full max-w-3xl space-y-7 pt-6 sm:pt-12">
                 {firstQuestion && !task ? (
-                  <article
-                    aria-label="Co-Scientist welcome message"
-                    className="space-y-5"
-                  >
-                    <ResearchGuide
-                      id="question-guidance"
-                      step={1}
-                      isData={Boolean(file)}
-                      onFinish={finishGuidance}
-                    />
-                  </article>
+                  <div className="h-56 sm:h-36" aria-hidden="true" />
                 ) : (
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
@@ -876,87 +909,103 @@ export function App() {
                     </p>
                   </div>
                 )}
-                <form
-                  className="space-y-3 rounded-xl border bg-background p-4 transition-colors focus-within:border-primary"
-                  onSubmit={submit}
+                <ResearchGuide
+                  open={firstQuestion && !task && !modal}
+                  step={1}
+                  isData={Boolean(file)}
+                  onFinish={finishGuidance}
                 >
-                  <Label htmlFor="question">Your question</Label>
-                  <Textarea
-                    id="question"
-                    ref={input}
-                    className="min-h-28 resize-none rounded-none border-0 bg-transparent p-0 text-base shadow-none focus-visible:ring-0"
-                    aria-describedby={
-                      firstQuestion && !task ? "question-guidance" : undefined
-                    }
-                    placeholder={
-                      file
-                        ? "Which columns should we explore?"
-                        : firstQuestion
-                          ? "What are you studying, and what would you like to find out?"
-                          : "Ask your research question…"
-                    }
-                    value={question}
-                    maxLength={3000}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.ctrlKey || e.metaKey))
-                        submit(e);
-                    }}
-                  />
-                  {file && (
-                    <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
-                      <FileText className="size-4" />
-                      <span className="min-w-0 truncate">{file.name}</span>
-                      <span className="ml-auto whitespace-nowrap text-muted-foreground">
-                        {file.stats.rows} rows
-                      </span>
+                  <form
+                    className={cn(
+                      "space-y-3 rounded-xl border bg-background p-4 transition-colors focus-within:border-primary",
+                      firstQuestion && !task && "border-primary/40",
+                    )}
+                    onSubmit={submit}
+                  >
+                    <Label htmlFor="question">Your question</Label>
+                    <Textarea
+                      id="question"
+                      ref={input}
+                      className="min-h-28 resize-none rounded-none border-0 bg-transparent p-0 text-base shadow-none focus-visible:ring-0"
+                      aria-describedby={
+                        firstQuestion && !task
+                          ? "research-guide-1-description"
+                          : undefined
+                      }
+                      placeholder={
+                        file
+                          ? "Which columns should we explore?"
+                          : firstQuestion
+                            ? "What are you studying, and what would you like to find out?"
+                            : "Ask your research question…"
+                      }
+                      value={question}
+                      maxLength={3000}
+                      onChange={(e) => setQuestion(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.ctrlKey || e.metaKey))
+                          submit(e);
+                      }}
+                    />
+                    {file && (
+                      <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
+                        <FileText className="size-4" />
+                        <span className="min-w-0 truncate">{file.name}</span>
+                        <span className="ml-auto whitespace-nowrap text-muted-foreground">
+                          {file.stats.rows} rows
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label="Remove attached file"
+                          onClick={() => setFile(null)}
+                        >
+                          <X />
+                        </Button>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2 border-t pt-3">
                       <Button
-                        type="button"
                         variant="ghost"
-                        size="icon-xs"
-                        aria-label="Remove attached file"
-                        onClick={() => setFile(null)}
+                        type="button"
+                        className="text-muted-foreground"
+                        onClick={() => upload.current.click()}
                       >
-                        <X />
+                        <Paperclip />
+                        Attach CSV
+                      </Button>
+                      {firstQuestion && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (file) {
+                              setQuestion(EXAMPLES.data[1][0]);
+                              input.current?.focus();
+                            } else
+                              useExample(
+                                EXAMPLES.literature[1],
+                                1,
+                                "literature",
+                              );
+                          }}
+                        >
+                          Use an example
+                        </Button>
+                      )}
+                      <Button
+                        className="ml-auto"
+                        type="submit"
+                        disabled={!question.trim() || !!task}
+                      >
+                        Ask
+                        <ArrowUp />
                       </Button>
                     </div>
-                  )}
-                  <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-                    <Button
-                      variant="ghost"
-                      type="button"
-                      className="text-muted-foreground"
-                      onClick={() => upload.current.click()}
-                    >
-                      <Paperclip />
-                      Attach CSV
-                    </Button>
-                    {firstQuestion && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (file) {
-                            setQuestion(EXAMPLES.data[1][0]);
-                            input.current?.focus();
-                          } else
-                            useExample(EXAMPLES.literature[1], 1, "literature");
-                        }}
-                      >
-                        Use an example
-                      </Button>
-                    )}
-                    <Button
-                      className="ml-auto"
-                      type="submit"
-                      disabled={!question.trim() || !!task}
-                    >
-                      Ask
-                      <ArrowUp />
-                    </Button>
-                  </div>
-                </form>
+                  </form>
+                </ResearchGuide>
                 {!firstQuestion && (
                   <section
                     aria-label="Editable question examples"
@@ -1162,32 +1211,6 @@ export function App() {
                   <ArrowLeft />
                   New research
                 </Button>
-                {guidedAnswer && (
-                  <ResearchGuide
-                    step={reviewedId === current.id || saved ? 3 : 2}
-                    saved={saved}
-                    isData={current.kind === "data"}
-                    sourceCount={current.result.sources.length}
-                    onFinish={finishGuidance}
-                    onSave={() => {
-                      openSave();
-                      if (saved) finishGuidance();
-                    }}
-                    onExplore={() => {
-                      setOpened((p) => ({ ...p, sources: true }));
-                      setReviewedId(current.id);
-                      requestAnimationFrame(() => {
-                        const trigger =
-                          document.getElementById("trigger-sources");
-                        trigger?.focus({ preventScroll: true });
-                        trigger?.scrollIntoView({
-                          behavior: "instant",
-                          block: "start",
-                        });
-                      });
-                    }}
-                  />
-                )}
                 <QuestionBubble>{current.question}</QuestionBubble>
                 <article aria-label="Co-Scientist answer" className="space-y-6">
                   <div className="flex items-center justify-between gap-2">
@@ -1251,6 +1274,7 @@ export function App() {
                           fibroblasts into cardiomyocyte-like cells in vitro.{" "}
                           <a
                             href={PAPERS[0].url}
+                            onClick={() => setReviewedId(current.id)}
                             target="_blank"
                             rel="noreferrer"
                           >
@@ -1263,6 +1287,7 @@ export function App() {
                           Hand2, Mef2c and Tbx5 in the mouse heart.{" "}
                           <a
                             href={PAPERS[1].url}
+                            onClick={() => setReviewedId(current.id)}
                             target="_blank"
                             rel="noreferrer"
                           >
@@ -1275,6 +1300,7 @@ export function App() {
                           factors and muscle-specific microRNAs.{" "}
                           <a
                             href={PAPERS[2].url}
+                            onClick={() => setReviewedId(current.id)}
                             target="_blank"
                             rel="noreferrer"
                           >
@@ -1355,7 +1381,8 @@ export function App() {
                         collapsible
                         value={opened.sources ? "sources" : ""}
                         onValueChange={(value) => {
-                          if (value === "sources") setReviewedId(current.id);
+                          if (value === "sources" && current.kind === "data")
+                            setReviewedId(current.id);
                           setOpened((p) => ({
                             ...p,
                             sources: value === "sources",
@@ -1363,25 +1390,33 @@ export function App() {
                         }}
                       >
                         <AccordionItem value="sources">
-                          <AccordionTrigger
-                            id="trigger-sources"
-                            className={cn(
-                              "text-xs",
-                              guidedAnswer
-                                ? "scroll-mt-80 sm:scroll-mt-56"
-                                : "scroll-mt-24",
-                            )}
+                          <ResearchGuide
+                            open={guidedAnswer && guideStep === 2 && !modal}
+                            step={2}
+                            isData={current.kind === "data"}
+                            sourcesOpen={opened.sources}
+                            onFinish={finishGuidance}
                           >
-                            <span className="flex flex-wrap items-center gap-3">
-                              <BookOpen className="size-4" />
-                              Sources used
-                              <span className="font-normal text-muted-foreground">
-                                {current.kind === "data"
-                                  ? "1 file · local calculation"
-                                  : `${current.result.sources.length} papers`}
+                            <AccordionTrigger
+                              id="trigger-sources"
+                              className={cn(
+                                "scroll-mt-72 rounded-md px-3 text-xs",
+                                guidedAnswer &&
+                                  guideStep === 2 &&
+                                  "bg-secondary ring-1 ring-primary/40",
+                              )}
+                            >
+                              <span className="flex flex-wrap items-center gap-3">
+                                <BookOpen className="size-4" />
+                                Sources used
+                                <span className="font-normal text-muted-foreground">
+                                  {current.kind === "data"
+                                    ? "1 file · local calculation"
+                                    : `${current.result.sources.length} papers`}
+                                </span>
                               </span>
-                            </span>
-                          </AccordionTrigger>
+                            </AccordionTrigger>
+                          </ResearchGuide>
                           <AccordionContent
                             aria-labelledby="trigger-sources"
                             className="text-base"
@@ -1402,6 +1437,7 @@ export function App() {
                                     href={source.url}
                                     target="_blank"
                                     rel="noreferrer"
+                                    onClick={() => setReviewedId(current.id)}
                                     className="group flex items-start gap-3 rounded-md px-2 py-4 hover:bg-accent"
                                   >
                                     <div className="flex-1 space-y-2">
@@ -1427,18 +1463,24 @@ export function App() {
                         </AccordionItem>
                       </Accordion>
                       <footer className="flex flex-wrap items-center gap-2">
-                        {!(
-                          guidedAnswer &&
-                          (reviewedId === current.id || saved)
-                        ) && (
+                        <ResearchGuide
+                          open={guidedAnswer && guideStep === 3 && !modal}
+                          step={3}
+                          saved={saved}
+                          onFinish={finishGuidance}
+                        >
                           <Button
+                            id="save-finding"
                             variant={saved ? "outline" : "default"}
-                            onClick={openSave}
+                            onClick={() => {
+                              openSave();
+                              if (saved) finishGuidance();
+                            }}
                           >
                             {saved ? <CheckCircle2 /> : <NotebookPen />}
                             {saved ? "Open in Notebook" : "Save to Notebook"}
                           </Button>
-                        )}
+                        </ResearchGuide>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost">
