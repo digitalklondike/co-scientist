@@ -1,194 +1,147 @@
-# Prototype Instructions
-
-## Accepted prototype direction
-
-- Build a local interactive research assistant from the client's video and the Mobbin references discussed with the user: Elicit as the home hierarchy and Intercom as contextual notebook guidance.
-- Keep the original white/blue scientific product identity and English UI.
-- Typography feedback: UI labels, buttons and metadata use 12 px minimum; reading text and text inputs use 16 px. Never use 14 px fonts, including responsive overrides. Use the shared typography tokens; keep the scale small.
-- The home must prioritise the user's own editable question. Examples fill the input and never submit automatically.
-- Practical onboarding accompanies a real task from editable question to answer/evidence and optional Notebook save. The user accepts system guidance through this workflow, but rejects the blue Alert/teaching-panel presentation. Use native assistant messages, a quiet Guided research badge and current-action counter (1/3 Question, 2/3 Evidence, 3/3 Notebook). Do not restore a static step list or separate lesson. The opening explains literature, CSV and hypotheses and asks for the user’s own research objective. What can I work with? opens the actual sources/files availability dialog, including demo limitations. Use an example stays inside the chat composer footer and fills without sending. The first answer summary appears before the evidence guidance. Explore papers opens and scrolls to the real Sources used disclosure. The next message at the sources suggests optional Notebook save. Keep one Save control, then an explicit saved state with Continue in Notebook / Finish guide. No required fourth note step. Saving remains available without opening sources. Demo reload always restarts guidance and preserves data. This workflow is our UX proposal based on the interview, not a sequence agreed with the client.
-- Mobbin adaptation: Dropbox Dash supplies a concrete prompt as entry into real work; Intercom supplies help beside the relevant control. The earlier ChatGPT-style explanatory slide tour was replaced by action-driven guidance. References and rationale are saved in ../platform-ux/onboarding-references/. Opening sources records that they were opened; never claim evidence has been verified from a click alone.
-- Demo behaviour: restore first-task guidance on every page refresh, even after completion or skipping. Keep guidance, the current guided task and dismissal in component state, not localStorage. Preserve saved research and notebooks across refreshes.
-- Label the question bubble Your question above its text, on waiting and answer screens. Keep the chat hierarchy: a right-aligned user question followed by continuous assistant text. Remove the old numbered onboarding headers and duplicate controls. Opening a stored result after refresh can also start the contextual guidance. Guidance is not verification of scientific evidence.
-- Keep history compact: show the five most recent unique question titles, with search and Show all research. Titles occupy one line with ellipsis, like chat navigation; the full question is available in a tooltip on hover or keyboard focus and in the accessible button name. Do not repeat task category and Today under each item. Preserve all stored records; deduplicate only their navigation display. Keep the account avatar only at the sidebar bottom, without a divider above it.
-- Keep the answer screen's original chat structure from the client video: continuous text with Direct answer and Conclusion, one Sources used disclosure at the bottom, Notebook and export in the message footer, recommended follow-up questions below. Do not redesign the answer as The short answer, Evidence/Limitations cards, reading-time metadata or Keep exploring. Keep one short contextual hint beside the real Sources used and Notebook controls. Export is grouped under More. Preserve the 12/16 typography and honest demo labels; use actual demo resource counts, not the client's original counts.
-- Keep tool choice automatic and avoid model settings. Use explicit plan-confirmation buttons for the advanced demo.
-- Clearly distinguish prepared literature/hypothesis examples from real local CSV calculations. Do not imply connections to Bayer systems or a live AI service.
-- Browser verification must cover the question → answer → sources → notebook → note workflow and responsive layouts. Keep the local preview open after handoff.
-
-Run the local server yourself and open the preview in the browser available to this environment. Do not give the user server-start instructions when you can run it.
-
-Before making substantial visual changes, use the Product Design plugin's `get-context` skill when the visual source is unclear or no longer matches the current goal. When the user gives durable prototype-specific design feedback, preferences, or decisions, record them in `AGENTS.md`.
-
-When implementing from a selected generated mock, treat that image as the source of truth for layout, component anatomy, density, spacing, color, typography, visible content, and hierarchy.
-
-Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
-
-## Component system and client palette
-
-Graft is available as the installed CLI. For source context, read .agents/skills/graft/SKILL.md and use graft grep/ask/skeleton/callers before reading source spans. The local graft/ cache indexes src; no deep LLM pass is needed. Avoid global agent configuration changes when working on this prototype.
-
-Keep Chat / Notebook tabs equal in width, in a two-column grid, and horizontally centered in the workspace header on desktop and mobile; navigation toggle stays left and help/demo stay right.
-
-Latest tab feedback: retain the registry-installed shadcn Tabs/TabsList/TabsTrigger default variant and neutral appearance in src/components/workspace-tabs.jsx. Animate just one white active surface using Motion and the Studio selection pattern (220ms); disable the primitive's active background/shadow so there is no second indicator. Respect reduced motion and make keyboard selection immediate. Measure actual trigger geometry and observe resizing. Trigger/panel ids are linked explicitly. Mobile tabs have at least 44px height; narrow headers retain equal widths and hide the notebook count below 360px. Guided source disclosure disables opening animation on the actual Accordion root via rootClassName. Respect reduced motion for source scrolling.
-
-Use genuine registry-installed shadcn components, including Sonner for every transient notification and Spinner for loading states. No handwritten Alert-based toast layer. Header tabs use shadcn/Radix navigation with one white moving surface, following the Studio/Motion pattern. Studio remains registered in components.json using its official GitHub public/r registry. Preserve 12px notifications/actions, client role tokens and its license in verification/shadcn-studio-LICENSE.txt. Motion comes from Sonner, Studio/Motion and shadcn/tw-animate-css; no bespoke keyframes.
-
-Use the installed shadcn/ui source components in src/components/ui (Radix base) and Tailwind v4 for the entire interface: Sidebar/Sheet, Tabs, Avatar, fields, buttons, cards, progress, table, Accordion, Dialog, Select, Tooltip, Badge, DropdownMenu and Alert. Do not restore legacy styles.css or readability.css imports or layer corrective CSS over the previous shell. Composition uses Tailwind utilities; theme.css contains shared role tokens and continuous scientific text rules. Use Lucide icons consistently. Preserve English, Inter and the 12/16/24/32 scale; text-sm is 12 px, inputs are 16 px including desktop. Use src/theme.css role tokens: white background, #243746 text, #0067a5 primary, #526777 secondary text, #dce3e9 borders. These values are a visual adaptation of the client video, not claimed official Bayer design tokens. Keep light appearance regardless of OS dark setting. Avoid nested cards and numbered help panels; one primary action per decision context. Preserve all research, notebooks and notes on refresh.
-
-
-## Latest onboarding feedback
-All three guide steps and the saved confirmation use the same ResearchGuide component: identical white shadcn Card, metadata, heading scale, width and spacing. First-step submission stays in the composer; review/save actions belong to the later guide states. Keep examples beside the composer. Sources/capabilities belongs in Help, not between the introduction and question. The guide resets on refresh and retains all research and notes.
-
-On the answer screen, onboarding must remain visibly separate from scientific prose. Use the common ResearchGuide above the user's question, sticky beneath the app header, explicitly labeled Research onboarding / Step 2 or 3 of 3. Keep one current action in this same location: review actual sources, optionally save, then open Notebook. Do not insert guidance paragraphs into the answer or repeat the step-three panel below sources. Source scrolling must account for both sticky headers. Preserve the matching first-step guide and demo replay on refresh.
-
-Research preparation uses continuous elapsed-time progress, independent of named stages. Retain the shadcn Progress transition, expose its numeric value to Radix, reset on each new task and clear its timer on completion/cancellation. This is progress for the prepared demo workflow.
-
-The user wants practical onboarding in which the system leads to a result. Preserve that interaction model with consistent guidance at each relevant action. Blue Alert panels and the static overview have been rejected. Client evidence: capabilities/connected sources and own questions (26:35–28:01), clear first page and minimal settings/actions (35:39–36:50), discovering Notebook (39:04–40:14). Do not imply the client approved our proposed sequence. Keep the user’s own question primary, client white/blue palette, shadcn base, 12px UI / 16px body and equal centered tabs.
-
-
-## Contextual onboarding — accepted 2026-10-06
-This supersedes the earlier sticky Card, teaching messages and guidance placement instructions. Use one ResearchGuide wrapper built from registry-installed shadcn Popover + Radix Anchor/Arrow. All three stages have the same white 320px coachmark, 12px First research / current step metadata, 16px heading/body and an explicit accessible skip/finish control. No duplicate guide action buttons or static step list.
-
-Step 1 anchors above the actual composer. Examples fill without submitting. Reserve enough space so the prompt and mobile header remain visible. Step 2 anchors to the actual Sources used AccordionTrigger; make this target visible on entering a guided result. Expanding literature sources keeps step 2 active; clicking an original paper link (including inline citations) advances to optional step 3. For a real local CSV, opening file calculation details advances. These actions do not prove sources were read or evidence was verified. Step 3 anchors to the single Save to Notebook button in the answer footer; saving remains available at any stage. Saved confirmation uses this same coachmark and points to Open in Notebook. Opening Notebook or explicitly finishing ends the guide. Reload restarts guide state and preserves all saved work.
-
-Coachmarks are nonmodal and never take focus away from the real controls. Clicking elsewhere does not silently dismiss onboarding; Escape or the labeled close button ends it. Hide them during destination/help dialogs. Reserve space beneath the app header and fit a 320px viewport. Keep coachmarks above their anchors rather than flipping over source links; use a lower z-index than the header and center the active target when entering or expanding the source step. Use shadcn/tw-animate-css popover transitions with reduced motion respected. Do not change the scientific answer structure, tabs, sidebar or existing saving workflow for this refinement.
-
-Mobbin references: Canva completing a guided tour (https://mobbin.com/flows/d3237fe5-9e7c-47ec-89e6-56ccfd951dc1) supplies compact coachmark anatomy/counter; Miro browsing guided tutorial (https://mobbin.com/flows/8b9e6af8-0a9c-422f-9285-73e5c96183fb) supplies anchoring to real controls; NotebookLM/Gemini Notebook creating a notebook (https://mobbin.com/flows/24e7f24a-146f-43da-a6cc-ee77e5232f09) supplies sources and save-to-note near the result. The references show tours/workflows; action-gated progression is our adaptation. This sequence is not claimed as client-approved.
-
-
-## Latest feedback: inline guidance, 2026-10-06
-The user rejected floating coachmarks/tooltips. This supersedes the Popover presentation above. ResearchGuide now renders a regular assistant message in document flow immediately above its real action, using Co-Scientist identity, the current Onboarding counter, a 24px title, 16px copy and a 12px Skip/Finish control. No floating panels, arrows, portal overlays, shadows or artificial spacer. All steps share this anatomy. Keep real-action progression and optional saving; guidance and controls must be visible together. Sources keep their one actual disclosure and saving its one actual button. Reserved Popover source may remain installed but must not be used for onboarding. Preserve tabs, data and replay on reload.
-
-## Latest feedback: visibly separate onboarding
-The user wants onboarding to be clearly recognizable. ResearchGuide now uses one nonfloating, nonsticky shadcn Card enclosing both guidance and its actual control. A distinct quiet header says First research onboarding, includes the current Step N of 3 and shadcn Progress for stage position, plus Skip/Finish. The body is white, 24px title and 16px copy, with a subtle primary border and no shadow. Step 1 encloses the actual composer (no second card around the form); step 2 encloses the actual Sources trigger; step 3 encloses the single save/open button. The same anatomy applies to all stages and saved confirmation. No tooltips, portals or overlay, and no static step navigation. This supersedes the plain inline message appearance above. Preserve real-action transitions and reload replay.
-
-## Latest feedback: guidance belongs to the working interface
-The user rejected a separate sidebar checklist and the framed lesson presentation. Keep guidance attached to actual actions in the chat, with one shared ResearchGuide task rail (no outer Card, floating coachmark, sidebar guide or static step navigation). The compact First research badge, Step N of 3, heading, short instruction and actual control share the same anatomy. On guided answers, place the real sources and save controls immediately after the direct answer, before extended scientific text, so continuation is visible. The sources task includes its actual expanded paper list. Opening a literature disclosure stays on step 2; opening an original paper advances to optional saving. Preserve the real CSV alternative, one Save control, reload replay, all data, client palette and 12/16 typography. This is our proposed interaction, not a client-approved sequence.
-
-
-## Selected direction: onboarding inside the controls
-The user selected option 2: working elements themselves receive the current action accent and embedded instruction. This supersedes the task rail presentation. ResearchGuide accents the actual composer or sources Accordion and inserts a compact First research / N of 3 hint inside its surface; the actual save/open button receives an accent with its hint alongside. No independent lesson heading, outer guide card, side guide, static step list or floating coachmark. All guidance uses 12px metadata and 16px instructions. Progress remains gated by real actions, saving optional, and reload replays while retaining work.
-
-
-Latest placement correction: onboarding hint appears at the TOP of the active working element, before the question input or sources disclosure. Step 3 places the matching hint above the actual save/open button. Preserve integrated surfaces and action-driven progression.
-
-Research preparation: completed stage checkmarks use green (emerald-700); current loading indicator and progress keep the primary blue.
-
-Latest answer/loading correction: remove New research above the answer (sidebar entry remains). Step 2 explicitly asks to open Sources used then an original paper to see the basis of the answer. Preparation rows reserve a fixed icon slot and permanent badge space (inactive badges invisible/aria-hidden), with a minimum row height, preventing layout shifts on completion.
-
-Preparation stage list uses a compact group: 24px minimum rows with 4px spacing; preserve fixed icon and badge slots to avoid shifts.
-
-
-Latest onboarding flow: show steps 2 (Explore sources) and 3 (Save to Notebook, with purpose) together on the answer page after the complete scientific answer. Opening Sources used marks discovery complete and activates save guidance; it does not establish evidence verification. Original papers remain available. Do not auto-scroll away from the expanded sources. Keep saving optional and available before source discovery. Completed discovery uses a green check; upcoming save guidance remains visible and quiet.
-
-Latest placement/style correction: all onboarding surfaces share the same rounded border and tinted top hint anatomy, including save (not a loose paragraph above a button). Step 2 attaches to sources after the direct answer; extended evidence and conclusion follow; step 3 attaches to the real save/open footer after the conclusion. Do not stack the source and save onboarding blocks next to one another.
-
-Latest refinement: steps 2 and 3 keep matching blue border/ring emphasis, both visible; completion is signaled by green checks rather than dimming an upcoming block. Save guidance contains a real finding preview (question, what is preserved, actual single destination or choose-on-save), then the existing save/open control. Remove Saving is optional from the prose; retain skip and nonblocking save behavior.
-
-Loading navigation: render the in-progress research as the first normal chat row under Recent research, using the actual question title, spinner and full tooltip. Hide the matching old title during the pending task; on completion replace it naturally with the ready record. Cancel research uses shadcn destructive with a soft red background and red text, not solid red fill.
-
-Latest sidebar correction: each submitted research is a separate chat by record ID, even when question titles match. Do not deduplicate chats by title or hide an existing chat while another runs. Pending chat inserts above the five existing recent rows (six visible while preparing); completion adds its own record and normal recent-history limit applies. This supersedes earlier title-deduplication guidance.
-
-After skipping onboarding, examples follow the client video home anatomy: centered Try one of these examples caption and a three-column grid of scenario cards with icons, 12px category headings and 16px actual editable prompts. Keep only supported demo scenarios (hypotheses, literature, local data analysis). Cards fill the composer without auto-submitting; data sample behavior remains explicit/local.
-
-Example card refinement uses the researched Gemini template-card anatomy (https://mobbin.com/screens/f13a48f5-294f-4c84-8c65-ed3468e8c145): soft neutral surface, category icon on a muted colored tile, 12px title, 16px editable question, bottom-aligned Use example and arrow. Cards have equal desktop height and restrained primary hover/focus; respect reduced motion. They remain only after skipping onboarding and fill without sending.
-Six example cards form a 3x2 grid after skipping onboarding. Added Comparative Study (prepared model comparison), Data Visualization (actual local CSV mean chart), Target Profiling (limited prepared GATA4 profile using included papers). Each card fills an editable question; CSV cards attach sample data. Distinguish prepared examples from local calculations and preserve source/save workflows.
-
-Short/long answers: show the direct summary and key limitations immediately. Keep sources and Notebook actions visible independently of a genuine shadcn Accordion labeled Show detailed analysis, collapsed per research ID. Detailed evidence, tables and conclusions expand on request. Requested CSV charts stay visible as the actual result; only calculation details collapse. No mandatory length settings or model selection. This supersedes the always-expanded scientific detail layout.
-
-Latest full-answer correction: the disclosure belongs immediately beneath the direct answer/chart, before source onboarding. Use a compact 16px semibold foreground-text shadcn Accordion trigger with chevron, no colored card, border, icon tile or supporting subtitle. Blue framed surfaces are reserved for onboarding. Sources and save remain independent actions.
-
-Answer depth uses real shadcn Tabs labeled Answer detail above the response: Brief / Full answer, equal widths and a neutral segmented surface. Default brief per research ID; full includes the summary, limitations, requested chart and detailed analysis. Sources and Notebook guidance remain outside both panels below the response. This supersedes all full-answer Accordion styles; no blue lesson-like panel or disclosure between onboarding steps.
-
-Latest answer-depth direction: user rejected local Brief/Full tabs. Use a genuine shadcn Accordion disclosure styled with buttonVariants outline: FileText icon, Expand answer / Collapse answer, chevron, 44px height, neutral border and white background directly under the short answer/chart. Full text continues in document flow before sources. No answer-level tabs, colored panel or onboarding-like metadata. Adaptation of ChatGPT Research's distinct report entry, not an exact copied interaction.
-
-Latest user-approved trial: preview the beginning of actual detailed analysis under the short answer with a white fade and clear outline Read full analysis control. Preview is aria-hidden/inert; expanded content is accessible through shadcn Accordion. Show only the current large onboarding hint: step 2 initially, then compact green Sources explored confirmation and step 3 hint after source discovery. Keep real sources and Save available at all times. This supersedes simultaneous large step 2/3 hints.
-
-Completed source onboarding retains its recognizable framed surface and compact tinted green header: 2 of 3 · Explore sources · Complete, green check, actual source disclosure below. Do not replace it with an unframed status line. Step 3 remains the only expanded instructional hint after discovery.
-
-Latest placement correction: after the short answer (and requested chart), show step 2/source disclosure, then the faded detailed-analysis preview/expansion, then step 3/save preview. Step 3 is visible from initial result without requiring sources to open. Keep completed source framing green. This supersedes sequential step-3 visibility and keeps the guide surfaces separated by actual analysis content.
-
-Full-analysis control is a compact centered pill over the end of the faded preview, with neutral outline, subtle shadow, label and chevron. Remove document icon and prevent AccordionTrigger flex-1 stretching via flex-none. No full-width empty button.
-
-NotebookLM-inspired redesign: three desktop work areas on a soft gray canvas, white rounded center panel and right Notebook workspace; left navigation includes a Sources panel and chat history. Right workspace shows real persisted notebooks/findings and working New/Open actions, not fake studio generation. On screens below xl, right panel hides while centered Notebook tab retains access; mobile left navigation remains shadcn Sheet. Keep client blue/foreground tokens and 12px UI/16px body. This is an adapted layout, not a NotebookLM clone or integration. Preserve short/full disclosure and contextual source/save onboarding.
-
-Modern Material-inspired tonal refinement: use flat rounded white work surfaces on gray canvas, no elevation shadows (shared Tailwind shadow tokens are none), remove decorative panel/header borders. Composer, source/save guidance, buttons and notebook previews use subtle filled tonal surfaces instead of outlines/rings. Keep focus-visible rings, semantic primary/green states, essential content separators, real shadcn components and 12/16 type scale.
-
-Latest annotation corrections: remove the duplicate left Sources panel entirely; sources remain contextual to answers. Account avatar has primary/15 filled background and primary initial. Right Notebook cards use a compact icon/title/count header, a Recently saved label, separate tonal finding rows and a clear Open notebook footer with consistent 16/12 hierarchy. Preserve flat surfaces without decorative strokes or shadows.
-
-Sidebar chat states: active record/pending task uses a white rounded surface with foreground text; inactive hover uses primary/10 tint. Preserve white active background on hover and keyboard focus rings.
-
-Remove persistent right Notebook workspace entirely. Home/answer focus on chat with history; Notebook remains in main tabs. Unsaved Save to Notebook opens a genuine shadcn Sheet from the right to select/create destination, even with one existing notebook. Saved action opens its notebook; completion confirmation remains contextual. No duplicate notebook list beside main workspace.
-
-Disclosure refinements: preserve the same source Accordion subtree when onboarding completes so Radix height animation can run without remounts. Use shadcn accordion animations with reduced-motion support; animate the analysis preview height rather than abruptly removing it. Center the analysis pill label/chevron without negative margins. Shared guide headers/bodies use 16px padding on mobile and 20px on desktop. Main navigation resets scroll after view render; returning to Chat starts at the top, without guide auto-scroll. Desktop header tabs are 256px combined and equal-width, preserving compact mobile sizing.
-
-Example research now contains an expanded prepared report based on the client video anatomy: overview, experimental-system comparison table, human evidence, animal/in vivo evidence, in vitro evidence, endpoint interpretation, gaps and conclusion. Keep the short summary first and detailed report behind the existing analysis disclosure. Three actual cited studies remain the honest demo scope; do not fake the video's 35-source count or future internal system connections. New saved results retain the structured report, and Markdown export includes its sections.
-
-Contextual Notebook panel: after saving, transition the same right shadcn Sheet from destination selection to the actual saved finding, its sources and an autosaved notes field. Opening an already-saved finding from Chat opens this panel too; Open full notebook navigates to the full Notebook tab. Keep left research navigation separate and no persistent Notebook rail. Closing the panel returns to research without saving duplicates.
-
-NotebookLM panel trial supersedes the desktop saved-result Sheet: after saving or opening a saved result, render a docked 380px right Notebook column with its own scroll and close control, beside an interactive chat. No desktop overlay or focus trap. Below 1024px use the existing Sheet. Closing restores full chat width; full Notebook navigation closes the contextual panel. Preserve contextual onboarding while the desktop column is visible.
-
-Desktop Notebook save selection uses the same docked right column as saved finding/notes, without Sheet overlay. Switching save to saved preserves the column and interactive chat. Use tonal destination selection, question/summary preview and borderless Cancel. Mobile keeps the Sheet.
-
-## Latest interaction feedback — 6 October 2026
-
-- Fields respond to hover with an outline, never a background tint. The question composer outlines the entire form, including its guidance header, with no outline on the inner textarea.
-- Sources used and Full analysis saved disclosures highlight their text/chevron rather than their full-width background. Saved-analysis trigger has compact vertical padding.
-- Workspace tab hover changes label/icon colour, not the tab background; preserve the white active indicator.
-- No divider under the selected notebook title/count/export header.
-- Compact research navigation shows five distinct existing question topics, preferring the active record for a repeated topic. Show all research and search retain every individual record; do not rename stored questions or delete duplicate records.
-
-## Notebook product parity — 6 October 2026
-The user authorized restoring the call's Notebook workflow: rename notebooks, edit the saved answer as Markdown (explicit Save/Cancel, original research preserved), and discuss a selected finding beside the notebook. Keep conversations attached to each finding and allow saving a response into the same collection. The local demo retrieves saved passages only and labels this limitation; no live AI, cloud persistence, permissions or collaboration claims. Empty default and local persistence remain. Text buttons use the common moderate rounded-md shape; icon-only controls remain circular.
-
-
-Notebook page rethink: use a compact notebook switcher/actions toolbar and a three-pane desktop workspace: saved-findings rail inside Notebook, one selected document, and that document's conversation. Selection controls both document and chat; avoid an independent chat context dropdown and a long feed of answer cards. Main research navigation remains separate. Desktop panes scroll independently with composer always visible. Mobile stacks the sections. Preserve empty state, saved data, editing, notes and conversation isolation.
-
-
-Latest Notebook feedback supersedes the three-pane trial: no permanent findings rail or conversation column. Search findings spans the available width in a horizontal row beside Add research. Show a compact full-width results list above the selected document. Conversation is optional, opened by Discuss finding and closed inline. Preserve all saved content and threads.
-
-Latest approved Notebook structure supersedes the selected-finding/search layout: two levels. The Notebook tab opens a library with a full-width horizontal notebook search and New notebook button, followed by notebook cards as a single-column list. Opening a card shows one notebook as a document of editable saved-answer blocks with sources and autosaved notes; no separate Findings navigation or permanent chat column. All notebooks returns to the library. Discuss finding opens its isolated conversation inline on that block. New notebook and Open full notebook enter the document directly. Keep empty default, existing saved data, local-demo limitation and separate left research navigation.
-Design feedback must be recorded here after each user correction and applied to subsequent work. Notebook library cards should have a Material-inspired tonal surface, generous horizontal spacing (40px desktop, 24px mobile), 24px corner radius and a distinct tonal icon tile. Cards must not inherit compact button padding. Preserve the user's earlier distinction: text action buttons use moderate rounded corners, not pills; icon-only controls are circular. Material inspiration is for hierarchy, surfaces and spacing, without copying the full Material button shape system.
-Latest card correction supersedes oversized Material cards: keep notebook rows compact (16px vertical mobile, 20px desktop; horizontal 24px/32px), icon tile 40px, radius 16px. Only two text levels in the main card content: title and one preview line. Show saved-answer count as a small numeric badge on the right with an accessible label, not a third metadata line. Material inspiration must not inflate card height.
-Latest notebook-card spacing correction: equal horizontal and vertical padding, 24px on every side. This supersedes separate horizontal/vertical values. The 40px icon tile has a more square shape with moderate rounded-md corners, rather than rounded-xl.
-Notebook count badge must explain its number visibly: use N saved answers (singular answer for 1), not a bare numeral. Keep it in the right-hand badge rather than a third line in the main text.
-Inside an opened notebook, saved answers are document blocks on the common white surface, never separate tonal cards. Use one shared max-width column for back navigation, notebook title/actions, answer headings, body, citations and notes; remove nested card padding/independent widths that misalign content. The document scrolls as one area beneath the fixed main workspace header.
-Notebook detail uses progressive disclosure: initially show each answer title, short preview and Show full answer. Full answer, edit/discuss, sources, notes and Open research appear within its expansion. Remove repeated edited/source status above titles. Keep the top notebook header minimal. The scrolling container spans the whole workspace width so its scrollbar sits at the workspace right edge; the centered inner document retains one aligned max-width column.
-Latest clarification supersedes whole-answer collapse in Notebook: keep the summary, edit/discuss controls, sources and notes visible. Only the detailed analysis collapses into a faded noninteractive preview with centered Read full analysis button, matching the Chat report pattern. Expanded analysis stays aligned on the white document surface; preserve scrollbar at the right edge of the overall workspace.
-Notebook document boundaries: use a subtle horizontal divider and 40px spacing only between saved-answer blocks, without restoring cards or a divider under the notebook header. Place the saved-answer count in a tag beside the notebook title. Page and answer titles share text-2xl/font-semibold/leading-tight/tracking-tight styling.
-Latest title hierarchy correction supersedes equal page/answer title sizes: notebook page title is 32px/40px semibold; answer titles remain 24px/30px semibold. Preserve the shared font and tracking, but distinguish levels through size and extra spacing (16px added below the notebook header). Count tag remains beside the page title.
-Notebook header emphasis: group back navigation and title/actions in a subtle tonal header surface, keeping text aligned with the white document below. The surface extends beyond the text column by its equal padding. Edit answer and Discuss finding share ghost button styling; Edited in Notebook is a quiet plain-text status at the right, not a competing badge.
-Make notebook block origin explicit: sequential 01/02 markers sit in the left margin on desktop (inline on mobile), with Saved from research or Saved from a notebook conversation above each title. Explain in the header that the notebook collects saved answers, their sources and personal notes. Numbering complements the existing inter-block divider and does not create cards.
-Latest Notebook discussion direction supersedes inline conversations: Discuss finding opens an optional right sidebar scoped to that saved answer. On desktop >=1280px it docks beside the document with animated width and independent message scroll/composer pinned below. Closing restores document width. Narrow screens use an accessible right Sheet. No permanent conversation column, and conversations remain isolated/persisted per finding.
-Discussion sidebar is a separate white rounded workspace card OUTSIDE the central SidebarInset, matching the existing contextual Notebook panel. Preserve gray canvas gap, own full-height scroll/composer and animated main workspace resizing. Do not embed the discussion column inside the central white card. Narrow screens retain the accessible Sheet.
-
-Notebook header correction: All notebooks sits above and outside the tonal header surface. Saved-answer count beside the page title uses a white badge background. Discussion chat distinguishes right-aligned tonal user bubbles labelled You from assistant responses labelled Co-Scientist. Show a brief honest Searching saved answer processing state with animated dots, reduced-motion support, and subtle new-response entrance. Keep local-demo limitation, per-finding conversations, scrollable history and fixed composer. Cancel pending work when the discussion unmounts; never simulate reasoning traces.
-
-Discussion assistant identity uses the same 28px Co-Scientist logo/avatar as the main Chat identity, instead of a generic message icon.
-
-Chat response saving is a visible outlined Save to notebook button with a bookmark icon; its completed state is a checkmark and readable Saved to notebook tonal status, not faded disabled text. Toasts use compact Material-inspired snackbar treatment: dark brand surface, white readable text, moderate 8px radius, subtle elevation, bottom-center placement, inline close control and contrasting text actions. Preserve keyboard focus and existing notification behaviour.
-
-All notebooks back button uses 16px horizontal padding on each side; do not remove button padding to align its text with the document. Preserve its placement above and outside the notebook header.
-
-Chat Sources used disclosure sits in a compact tonal rounded-2xl block with 20px horizontal padding. Expanded articles stay inside that surface. Avoid a second tonal card while the onboarding guide already wraps it; disclosure hover remains label/chevron only.
-
-Latest toast direction supersedes dark Material snackbar: use a compact white surface, subtle neutral border and soft elevation, 12px corners, 16px equal vertical/left padding, a 32px square tonal status icon, readable brand text and an independent inline close button. Inspiration: Maze and MagicPath success toasts found through Mobbin MCP. Keep bottom-center placement, contrasting action labels and existing behaviour.
-
-Notebook Read full analysis expands and collapses the same content container with a 280ms eased height transition and fades the preview mask; no instant swap of preview/full DOM. Reduced-motion users get immediate state changes. Inputs and textareas have a clearly visible primary-colour border on hover, a short border-colour transition, and unchanged background; disabled fields do not respond. Question composer retains whole-form outline rather than an inner textarea border.
-
-Source article rows use equal 16px padding and white hover/focus backgrounds within the tonal Sources block. Toasts must use product semantic colour/radius tokens, Badge status tiles and shared buttonVariants for action/dismiss controls; no independent hex palette or floating shadow system. Latest analysis motion correction: expand/collapse over 500ms with cubic-bezier(.4,0,.2,1), including Notebook height motion and Chat analysis accordion; reduced motion stays immediate.
-
-Research history search is a standard outlined Input: persistent border-input stroke, white product background, moderate rounded-md corners and 40px height; retain the search icon and shared hover/focus border states. Do not render it as a borderless pill.
-
-Each saved answer has an Actions menu beside Open research with Remove from notebook. Remove only the notebook copy; original research remains. Show Undo in a persistent actionable toast to restore the answer, notes, sources and conversation at its original position without overwriting later changes. Close discussion if its finding is removed; reconcile the originating conversation saved-response state. Empty notebooks retain their empty state.
-
-All notebooks alignment: offset the padded button 16px left so its arrow aligns with the notebook title/body text column. Keep 16px internal horizontal padding; do not remove padding to achieve alignment.
-
-History search correction: outlined field with transparent background, not white fill. Notifications use one reusable NotificationToast component rendered through Sonner custom: explicit grid centres the 32px status Badge, message, actual shared Button action and circular dismiss Button. Desktop width 480px gives short messages room; narrow screens place the action below the message. No absolute-position close icon or conflicting default Sonner button styles. Destructive menu actions use DropdownMenuItem destructive variant with destructive icon colour matching the label.
-
-Research history search typography matches New research above: 12px, medium 500 weight, primary colour for text, placeholder and search icon. Preserve outlined transparent field styling.
-
-Discussion composer submit button aligns to the right edge of its textarea; Ask label comes before the upward arrow icon. Apply the same component layout in desktop sidebar and mobile Sheet.
-
-Latest saved-answer action styling supersedes ghost actions: Edit answer and Discuss finding use the shared secondary Button variant with a light tonal background, preserving compact size and moderate corners.
+# Co-Scientist — project instructions
+
+This file is the current, consolidated source of truth for the design and implementation decisions accepted with the user. It replaces the previous chronological list of experiments. Where older design notes or references disagree, follow this file and the user's latest explicit feedback. Record durable new decisions here after each correction; update the relevant rule instead of appending contradictory versions.
+
+## Product scope and honesty
+
+- Build a local interactive scientific research assistant, based on the client's video and the user's accepted refinements. Keep the white/blue scientific identity, English UI and Inter.
+- The user's own editable scientific question is the primary entry point. Examples fill the question without automatically submitting it. Tool choice is automatic; do not introduce model or answer-length settings. Advanced demo plans use explicit confirmation buttons.
+- Literature, hypothesis, comparison and target-profile responses are prepared examples. CSV statistics and charts are actual local calculations. Use the actual three-paper demo scope and resource counts; never invent a larger source library or connections to Bayer systems.
+- Notebook discussions retrieve saved content locally. Clearly label Local demo / saved content only. Do not imply live AI, cloud persistence or product collaboration capabilities.
+- Opening sources or a paper is discovery, not proof that evidence has been read or verified. Our onboarding is a UX proposal adapted from the interview and references, not a client-approved sequence.
+- Preserve research records, saved answers, sources, notes and per-finding conversations on refresh. Start with an honest empty Notebook when nothing has been saved. Guidance resets on reload independently of persisted work.
+
+## Shared component system
+
+- Use the installed shadcn/ui source components in `src/components/ui`, Radix primitives, Tailwind v4 and the `@` alias. Compose Sidebar/Sheet, Tabs, Avatar, Button, Input, Textarea, Label, Badge, Dialog, Accordion, DropdownMenu, Tooltip, Card, Table, Select, Progress and Spinner rather than recreating their behaviour.
+- Use Lucide icons consistently and the shared Co-Scientist logo/avatar for assistant identity. A generic chat icon must not replace the assistant logo.
+- Reuse component variants, semantic colour tokens, radius tokens and shared spacing. Do not create a separate visual language for toasts, forms, menus or side panels.
+- Keep `components.json` and the registered Studio components. Preserve the Studio license in `verification/shadcn-studio-LICENSE.txt` when those assets are used.
+- Use `src/theme.css` for shared role tokens, typography and continuous scientific text rules. Compose layouts with Tailwind utilities. Do not restore legacy `styles.css` / `readability.css` or add corrective layers over an obsolete shell.
+- Keep the light theme regardless of OS dark mode. No decorative panel/header borders, nested cards or independent shadow system. Essential dividers, field strokes and keyboard focus rings remain visible.
+
+## Palette, typography and shapes
+
+These colours are an adaptation of the client video, not an official Bayer brand specification. Use semantic tokens rather than repeating hex values in components.
+
+| Role | Prototype value |
+| --- | --- |
+| Background / white work surface | #ffffff |
+| Foreground | #243746 |
+| Primary action / link | #0067a5 |
+| Muted text | #526777 |
+| Secondary tonal surface | #f2f5f7 |
+| Accent surface | #d9e8f2 |
+| Border | #dce3e9 |
+| Field stroke | #c1cdd7 |
+
+- Use a small type scale: 12px labels, actions and metadata; 16px reading text and standard text inputs; 24px/30px semibold section and answer headings; 32px/40px semibold page titles. Keep shared font and tight heading tracking. Never use 14px, including responsive overrides. `text-sm` is the project's 12px UI size.
+- Research-history search is an explicit exception to standard 16px input text: it matches New research with 12px, weight 500 and primary colour for text, placeholder and search icon.
+- Text buttons use moderate `rounded-md` corners, not capsule pills. Icon-only controls are circular. Use the shared radius scale; do not invent per-component rounding.
+- Material inspiration applies to tonal surfaces, hierarchy and spacing. It must not inflate cards or force Material's entire button shape system.
+- Actions at the same level share a variant. Edit answer and Discuss finding use compact secondary Buttons with a light tonal background. Edited in Notebook is quiet plain text at the right, not another badge or button.
+- On the tonal notebook header, Add research uses the shared secondary Button with a white background token so its surface remains visibly distinct. Retain the shared accent hover and focus states.
+- Destructive menu labels and icons use the same destructive colour. Use the DropdownMenuItem destructive variant and ensure its icon inherits or explicitly uses that token.
+
+## Workspace and navigation
+
+- Use a soft gray canvas with a white rounded central workspace. Keep research navigation on the left and the account avatar at its bottom, without a divider above it. The account avatar uses a primary-tinted background and primary initial.
+- Chat / Notebook tabs are equal-width columns, horizontally centred in the fixed workspace header. Desktop combined width is 256px; navigation toggle remains left and help/demo controls right.
+- Use the registry-installed neutral shadcn Tabs with one white active surface. Disable the primitive's duplicate active background/shadow. Measure trigger geometry and observe resizing. Label/icon colour changes on hover; the tab background does not.
+- Animate the active surface with the Studio/Motion selection pattern over 220ms. Keyboard selection and reduced-motion selection are immediate. Link trigger and panel IDs explicitly. Mobile tab targets are at least 44px tall; hide Notebook count below 360px if needed.
+- Keep recent research compact: five distinct question topics, preferring the active record for a repeated topic. This deduplicates navigation only; retain every individual research record in search and Show all research. Do not rename or delete records with repeated questions.
+- Each submitted task has its own record ID. A pending task appears as the first normal chat row with its question, Spinner and tooltip, without replacing another stored record. Use single-line ellipsis and expose the full question on hover/focus and in its accessible name. Do not repeat category/date metadata under rows.
+- Selected/pending navigation rows have a white rounded surface and foreground text, retained on hover. Inactive hover uses a primary tint. Preserve keyboard focus states.
+- Research-history search is a 40px-high shared outlined Input with a persistent field stroke, transparent background, moderate corners and search icon. It is not a borderless pill or a white-filled control.
+- Do not restore a duplicate left Sources panel or a permanent right Notebook rail. Sources belong to their answer; optional contextual panels open for a real task.
+- Main navigation resets the document scroll after rendering. Returning to Chat starts at the top without a competing guide auto-scroll.
+
+## Forms and interaction states
+
+- Inputs and textareas retain a clear outline. Hover changes the stroke to primary with a short border-colour transition; it never changes the background. Disabled fields do not respond to hover. Keep focus-visible rings and accessible labels.
+- The research composer outlines the entire form, including integrated guidance and footer, on hover/focus. Its inner textarea does not receive a second border.
+- The composer groups editable input, CSV attachment, examples and Ask. Capabilities/available sources live in Help, outside the task path, and explain the real demo limitations.
+- Place the discussion submit Button at the textarea's right edge. The order inside is Ask then the upward arrow. Use the same layout in the desktop panel and mobile Sheet.
+- Keep one primary action per decision context. Shared mobile Button targets are at least 44px; do not confuse a status badge with an action.
+
+## Research answer and progressive disclosure
+
+- Preserve the chat anatomy: right-aligned tonal user question labelled Your question, then Co-Scientist identity and continuous scientific text. Do not replace the response with a grid of Evidence/Limitations cards, reading-time metadata or a second local tab system.
+- Show the direct answer and key limitations immediately. Requested CSV charts remain visible as the result; only their calculation details collapse.
+- Order the literature result as direct answer → Sources used / step 2 → detailed-analysis preview → save / step 3 → recommended follow-up questions. Keep export grouped under More.
+- Detailed analysis starts as the beginning of the actual report with a white fade and a compact centred Read full analysis Button with label and chevron. No document icon, stretched full-width trigger, large empty button or Brief/Full tabs.
+- Preserve actual report sections: overview, experimental systems table, human evidence, animal/in vivo evidence, in vitro evidence, endpoint interpretation, gaps and conclusion. Markdown export retains the structured report and actual citations.
+- Expanding/collapsing must smoothly animate the same content container rather than swapping preview/full DOM. Use 500ms and cubic-bezier(.4,0,.2,1), with a fading preview mask. Chat uses the real Accordion; Notebook uses eased height motion. Reduced motion changes state immediately.
+- Collapsed overflow is inert/aria-hidden and must not expose hidden links to focus. Expanded content is accessible. Source and analysis triggers highlight label/chevron rather than tinting an entire row.
+- Sources used is a compact tonal `rounded-2xl` block with 20px horizontal padding. Do not add a second tonal card when ResearchGuide already wraps it.
+- Expanded paper rows have equal 16px padding and white hover/focus backgrounds within the tonal sources surface. Keep links, citations and study tags readable; do not squeeze horizontal hover padding.
+- Preserve the source Accordion subtree when guidance completes so Radix can animate without remounting. No forced auto-scroll away from the expanded source list.
+
+## Practical contextual onboarding
+
+- Use one shared ResearchGuide integrated into the actual working controls. No floating coachmarks/tooltips, portal arrows, sticky lesson cards, independent sidebar checklist or static step navigation.
+- Matching composer, sources and save surfaces use a compact tinted hint at the TOP, followed by the actual control. Use 12px step metadata, 16px instruction and an accessible Skip/Finish action; body/header padding is 16px mobile and 20px desktop.
+- Step 1 asks the user's own scientific question; CSV tasks ask what columns to explore. Examples remain editable and non-submitting.
+- Step 2 attaches to the real Sources used disclosure after the direct answer. Opening the disclosure completes discovery; original paper links stay available. Local CSV uses actual file calculation details. Never call this verification.
+- Completed discovery retains its recognizable frame with a compact green header, check and 2 of 3 · Explore sources · Complete. Do not replace it with an unrelated unframed status line.
+- Step 3 appears from the initial result, after the analysis preview, and contains a finding preview, preserved answer/source information, actual destination and the single save/open control. Saving is available before sources open and remains nonblocking. No required fourth notes step or repeated save buttons.
+- Saved guidance offers the real Open in Notebook action and Finish. Completing/skipping ends guidance; reloading restarts it while retaining all saved work.
+- After skipping, home examples use a centred Try one of these examples caption and a 3×2 grid of six supported scenarios. Cards have icons, 12px category headings and 16px editable prompts: hypotheses, literature, local data analysis, prepared comparison, actual CSV mean visualization and limited prepared GATA4 profile. CSV examples explicitly attach sample data.
+- Preparation progress tracks elapsed demo time independently of named stages. Reset and clear timers on start/completion/cancellation. Compact stage rows reserve icon/badge space to avoid layout shifts; completed checks are green, current Spinner/progress blue. Cancel research uses a soft destructive background and destructive text.
+
+## Notebook information architecture
+
+- A notebook is a user-created collection of saved answers, sources and personal notes. It can contain findings from different research records and saved discussion responses; it is not a single research conversation.
+- Preserve origin links/IDs so each finding can open its original research. Label Saved from research or Saved from a notebook conversation above each title. Do not imply a notebook's title is the origin of every contained answer.
+- Notebook has two levels: searchable library → opened notebook document. The library uses full-width search beside New notebook and a compact single-column list. Do not restore a permanent findings rail, three-pane Notebook or selected-finding search layout.
+- Library rows have equal 24px padding, 16px corners and a 40px tonal icon tile with moderate square corners. Main text has title and one preview line only. On the right show a white badge visibly labelled N saved answers (singular for 1), not a bare numeral or third text line.
+- An opened notebook uses one aligned max-width document column. Saved answers remain on the common white surface, without separate tonal cards. The scrolling container spans the workspace width so its scrollbar sits at the outer right edge beneath the fixed app header.
+- Give the notebook header a quiet tonal surface that extends beyond the text column by equal padding. Page title is 32px/40px; answer titles remain 24px/30px. Put the white saved-answer count tag beside the page title and explain that the collection contains answers, sources and personal notes. No divider under this header.
+- All notebooks sits ABOVE and OUTSIDE the tonal header. Keep 16px internal horizontal padding and offset the Button 16px left so its arrow aligns with page/body text; do not remove padding to fix alignment.
+- Separate saved-answer blocks with a subtle horizontal divider and 40px spacing. Sequential 01/02 markers sit in the left margin on desktop and inline on mobile, alongside the origin caption. This numbering must make block boundaries clear without creating cards.
+- Keep each summary, Edit answer / Discuss finding secondary Buttons, sources and autosaved notes visible. Collapse only detailed analysis behind the faded Read full analysis pattern. Do not hide all actions/notes in a whole-answer expansion.
+- Rename notebooks through real controls. Edit the saved Markdown with explicit Save/Cancel, preserving the original research. Notes save automatically. Keep empty states useful and retain data on refresh.
+
+## Contextual panels and finding discussion
+
+- Save to Notebook opens a destination selector even when there is only one notebook. After saving, transition the SAME contextual panel to the saved answer, sources and autosaved notes. Opening an already-saved result from Chat opens this panel; Open full notebook navigates to the full document and closes it. Avoid duplicate saves.
+- Desktop contextual Notebook/discussion panels are optional separate white rounded cards OUTSIDE the central SidebarInset, with a gray canvas gap. Use a 380px right card and animated workspace resizing. At widths below 1024px use an accessible Sheet; do not add a desktop overlay or focus trap.
+- Discuss finding opens a panel scoped to that finding. Each finding owns its persisted conversation; no independent context dropdown. Closing restores the document width. The message history scrolls independently and the composer stays visible below it.
+- User messages are right-aligned tonal bubbles labelled You. Assistant messages use the shared 28px Co-Scientist logo/avatar and label, then readable response text. Distinguish roles clearly instead of rendering all messages as continuous identical text.
+- Show an honest Searching saved answer pending state with animated dots and a subtle response entrance. Respect reduced motion, block duplicate submissions and clear pending timers when the conversation unmounts. Never simulate private reasoning traces or claim live AI.
+- Auto-scroll the conversation only while following its latest messages; do not pull a reader away from earlier content.
+- Save response is a visible outlined primary Save to notebook Button with bookmark icon. Completion is a readable tonal check + Saved to notebook state, not faded disabled text. Saving creates a new finding in the same collection and preserves its parent/message provenance.
+
+## Removal and notifications
+
+- Each finding has an accessible Actions menu beside Open research, with Remove from notebook. Remove the saved copy only; keep original research intact.
+- Offer Undo in a persistent actionable toast. Restore the answer, sources, notes and thread at its original position without overwriting subsequent edits. If the removed finding is discussed, close its panel. Reconcile source-message saved state so a removed response can be saved again. Preserve useful empty notebooks.
+- All transient notifications use Sonner. Reuse one NotificationToast rendered through Sonner custom and actual shared Badge / Button components. No handwritten Alert toast layer or unrelated Material snackbar theme.
+- Toasts use a white product surface, subtle neutral border, shared moderate corners and equal 16px padding. Arrange the 32px tonal status tile, readable brand text, optional secondary action and circular dismiss Button with an explicit grid and consistent centres.
+- Bottom-centre placement; desktop width up to 480px gives short messages room. On narrow screens the action moves below the message. Do not absolutely position the close icon or mix default Sonner button styles with shared Buttons.
+- Keep meaningful status colours, accessible dismissal and keyboard focus. Transient toasts expire; Undo stays available until acted on or dismissed. Earlier dark snackbar, mismatched palette and crooked icon/action layouts are rejected.
+
+## References and design practice
+
+- Use references to solve the actual interaction: Elicit for research hierarchy, Dropbox Dash for a concrete task entry, Intercom for help beside the real action, NotebookLM for collections and optional contextual panels, Maze/MagicPath for compact success notifications. Material informs flat tonal hierarchy and spacing; it does not override the product components.
+- Mobbin reference rationale is in `../platform-ux/onboarding-references/`. Historical tour references include Canva (https://mobbin.com/flows/d3237fe5-9e7c-47ec-89e6-56ccfd951dc1), Miro (https://mobbin.com/flows/8b9e6af8-0a9c-422f-9285-73e5c96183fb) and NotebookLM/Gemini Notebook (https://mobbin.com/flows/24e7f24a-146f-43da-a6cc-ee77e5232f09). They do not authorize restoring rejected floating tours.
+- The user suggested https://www.beautifului.dev/ for chat/motion inspiration. Treat it as a reference, not permission to introduce an unrelated style or dependency.
+- Before substantial visual work, use Product Design context gathering when the source is unclear. A selected mock is the layout/anatomy/density source of truth, subject to subsequent explicit corrections.
+- Preserve alignment, hierarchy and equal padding before adding decorative styling. Reuse one component for repeated anatomy and update shared variants instead of scattering one-off overrides.
+- Use Motion, Sonner and shadcn/tw-animate-css for motion; avoid bespoke keyframes. Animate actual changes, keep focus/keyboard operation stable and support reduced motion. The explicit 500ms analysis expansion is intentional.
+
+## Engineering and verification
+
+- Build UI in `src/`. Preserve `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs` and `tests/sites-worker.test.mjs` for Sites handoff.
+- Graft is installed. Before source context reads, read `.agents/skills/graft/SKILL.md` and use graft grep/ask/skeleton/callers to locate relevant spans. Its local cache indexes `src`; no deep LLM pass is required. Avoid global agent configuration changes.
+- Run the local server and open its preview when needed; do not give server-start instructions for work you can run. Keep the local preview available after handoff.
+- Verify affected real flows and responsive layouts, including question → answer → sources → save → notebook → notes, per-finding discussion and remove/Undo when changed. Verify keyboard focus, reduced motion and narrow layouts. Preserve all existing local data during verification.
+- Use meaningful tests for data behaviour; do not add implementation-mirroring tests for small reversible visual changes. Before build/handoff run `npm run build` and relevant existing tests (`node --test tests/*.test.mjs`). Sites packaging must produce `dist/client/index.html`, `dist/server/index.js` and `dist/.openai/hosting.json`.
+- Do not commit environment secrets, node_modules, dist, Graft caches or temporary verification assets. Keep `.gitignore` protections.
+
+## Agreed GitHub workflow
+
+- Repository: https://github.com/digitalklondike/co-scientist (public). Shared integration branch is `master`; this working branch is `Nikita`. Do not assume its name is `main` or rename it without a request.
+- Each contributor works/pushes in their own branch. Direct pushes require collaborator access; public visibility alone does not grant it.
+- When the user asks to upload to the shared branch, first fetch its latest state, preserve local work, integrate and resolve conflicts, run relevant checks, then merge/upload. Others pull `master` and integrate it into their working branches before continuing.
+- Separate branches reduce interference but cannot guarantee conflict-free merges. Do not overwrite others' work or force-push the shared branch. A request to edit documentation does not itself request a GitHub push.

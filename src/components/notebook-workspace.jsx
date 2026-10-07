@@ -126,7 +126,7 @@ export function NotebookWorkspace({
           <span className="shrink-0 rounded-md bg-white px-2.5 py-1 text-xs text-muted-foreground">{book.findings.length} saved {book.findings.length === 1 ? "answer" : "answers"}</span>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={onResearch}>
+          <Button variant="secondary" className="bg-background" onClick={onResearch}>
             <Plus />
             Add research
           </Button>
