@@ -50,6 +50,8 @@
 }
 :root {
   color-scheme: light;
+  --text-navigation: 14px;
+  --text-search: 14px;
   --radius: 0.875rem;
   --background: #ffffff;
   --foreground: #243746;
@@ -96,6 +98,33 @@
 }
 /* Continuous scientific text is content, not a stack of interface cards. */
 @layer components {
+  .scenario-card {
+    --scenario-card-height: 176px;
+    --scenario-card-padding: 16px;
+    --scenario-card-gap: 8px;
+  }
+  .scenario-card-outcome {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  @media (min-width: 1024px) and (max-height: 1099px) {
+    .scenario-card {
+      --scenario-card-height: 104px;
+      --scenario-card-padding: 12px;
+    }
+    .scenario-card-outcome {
+      display: none;
+    }
+  }
+  @media (min-width: 1024px) and (max-height: 899px) {
+    .scenario-card {
+      --scenario-card-height: 88px;
+      --scenario-card-padding: 8px;
+      --scenario-card-gap: 4px;
+    }
+  }
   .research-prose > * + *,
   .research-prose section > * + * {
     margin-top: 1rem;

@@ -18,6 +18,9 @@ export const EXAMPLES = {
       "Create a target profile for GATA4 using the included cardiac reprogramming papers.",
       "Explore a limited, prepared target profile.",
     ],
+    ["Summarize the key findings in the included cardiac reprogramming studies.", "Review the main findings and limitations."],
+    ["Review the evidence gaps in the included cardiac reprogramming studies.", "Explore uncertainties in these three studies."],
+    ["Compare the measured endpoints in the included cardiac reprogramming studies.", "Distinguish cell identity from functional maturation."],
   ],
   data: [
     [
@@ -196,7 +199,7 @@ export function answer(task) {
         "Start with a small set of hypotheses: distinguish functional maturation from marker expression, compare starting cells, and test factor-delivery timing.",
       sources: PAPERS,
     };
-  if (/target profile.*gata4/i.test(task.question))
+  if (/(?:target (?:profile|dossier)|(?:profile|dossier) (?:of|for)).*gata4/i.test(task.question))
     return {
       title: "GATA4 · Prepared target profile",
       scenario: "target",
@@ -212,6 +215,18 @@ export function answer(task) {
         "The included papers cover mouse cells in vitro, a mouse in vivo model, and human cells in vitro. Compare these experimental settings before treating findings as interchangeable.",
       sources: PAPERS,
     };
+  const sectionTitle = /evidence gaps/i.test(task.question) ? "Evidence gaps and next questions"
+    : /measured endpoints/i.test(task.question) ? "What counts as a convincing result?"
+      : /summari[sz]e the key findings/i.test(task.question) ? "Conclusion" : null;
+  if (sectionTitle) {
+    const section = CARDIAC_REPORT.sections.find((item) => item.title === sectionTitle);
+    return {
+      title: sectionTitle,
+      summary: section.paragraphs.join(" "),
+      report: CARDIAC_REPORT,
+      sources: PAPERS,
+    };
+  }
   return {
     title: "Key factors for cardiac reprogramming",
     summary: SUMMARY,

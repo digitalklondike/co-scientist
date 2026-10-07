@@ -16,7 +16,7 @@ import {
 
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -44,12 +44,14 @@ export function NotebookLibrary({ books, onOpen, onNew }) {
         </p>
       </header>
       <div className="flex shrink-0 items-center gap-3">
-        <Input
+        <SearchInput
           aria-label="Search notebooks"
           placeholder="Search notebooks"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          className="h-11 min-w-0 flex-1"
+          onClear={() => setSearch("")}
+          clearLabel="Clear notebook search"
+          className="flex-1"
         />
         <Button className="h-11" onClick={onNew}>
           <Plus />

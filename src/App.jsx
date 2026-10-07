@@ -10,7 +10,6 @@ import {
   NotebookPen,
   MessageSquare,
   Plus,
-  Search,
   Paperclip,
   X,
   ChevronDown,
@@ -30,6 +29,7 @@ import "@fontsource-variable/inter";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -104,6 +104,9 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { ScenarioCards, ScenarioCatalog, ResearchContextChip, ScenarioDraftHint, IntentClarification } from "@/components/research-scenarios";
+import { researchIntent, hasPromptPlaceholder, supportsPreparedTopic } from "./research-intent.js";
+import { researchContext, answerWithContext } from "./research-context.js";
 import {
   EXAMPLES,
   SAMPLE,
@@ -111,7 +114,6 @@ import {
   CARDIAC_REPORT,
   IDEAS,
   parseCSV,
-  answer,
   fmt,
   download,
   markdown,
@@ -457,6 +459,10 @@ export function App() {
   const [chatFindingId, setChatFindingId] = useState(null);
   const [notebookDetail, setNotebookDetail] = useState(false);
   const [discussionOpen, setDiscussionOpen] = useState(false);
+  const [selectedScenario, setSelectedScenario] = useState(null);
+  const [draftContext, setDraftContext] = useState(null);
+  const [clarifyIntent, setClarifyIntent] = useState(false);
+  const [draftNotice, setDraftNotice] = useState("");
   const [question, setQuestion] = useState(""),
     [category, setCategory] = useState("literature"),
     [file, setFile] = useState(null),
@@ -483,6 +489,8 @@ export function App() {
     book = books.find((b) => b.id === bookId) || books[0],
     saved =
       current && books.some((b) => b.findings.some((f) => f.id === current.id));
+  const workspaceTab = view === "notebook" ? "notebook" : view === "scenarios" ? "scenarios" : "chat";
+  const recentResearch = records.find((record) => !record.context && !record.result.needsFile && !record.result.unrelated && record.result.title !== "Notebook follow-up");
   const chatFinding = book?.findings.find((finding) => finding.id === chatFindingId) || book?.findings.at(-1);
   useEffect(() => { setDiscussionOpen(false); }, [view, notebookDetail, book?.id]);
   const matchingHistory = records.filter((r) =>
@@ -499,6 +507,8 @@ export function App() {
   const firstQuestion =
     guide &&
     (!guidedId || (current?.id === guidedId && current.result.needsFile));
+  const showScenarioPreview = !firstQuestion && !selectedScenario && !draftContext && !file && !clarifyIntent && !draftNotice;
+  const fitHome = view === "home" && showScenarioPreview;
   const guidedAnswer =
     guide && current?.id === guidedId && !current?.result.needsFile;
   const guideStep = reviewedId === current?.id || saved ? 3 : 2;
@@ -524,11 +534,13 @@ export function App() {
     setGuide(false);
     setNoteHint(false);
   }
-  const notify = (text, action, type = "success") =>
-    sonnerToast.custom((id) => <NotificationToast text={text} type={type} action={action} onDismiss={() => sonnerToast.dismiss(id)} />, {
+  const notify = (text, action, type = "success", description) => {
+    const notificationKey = crypto.randomUUID();
+    sonnerToast.custom((id) => <NotificationToast key={notificationKey} text={text} description={description} type={type} action={action} duration={action ? null : 5500} onDismiss={() => sonnerToast.dismiss(id)} />, {
       id: "research-notification",
-      duration: action ? Infinity : 5500,
+      duration: Infinity,
     });
+  };
   const nav = (v) => {
     if (v === "notebook") setNotebookDetail(false);
     viewRef.current = v;
@@ -544,6 +556,10 @@ export function App() {
     if (guide) setGuidedId(null);
     setQuestion("");
     setFile(null);
+    setSelectedScenario(null);
+    setDraftContext(null);
+    setClarifyIntent(false);
+    setDraftNotice("");
     setTimeout(() => input.current?.focus(), 50);
   };
   useEffect(() => {
@@ -561,7 +577,7 @@ export function App() {
       setTimeout(() => setStage(2), 2600),
       setTimeout(() => {
         setResearchProgress(100);
-        const r = { ...task, result: answer(task) };
+        const r = { ...task, result: answerWithContext(task) };
         setRecords((p) => [r, ...p.filter((x) => x.id !== r.id)]);
         setActive(r.id);
         setTask(null);
@@ -604,28 +620,75 @@ export function App() {
     e.target.value = "";
     if (!f) return;
     if (!/\.csv$/i.test(f.name)) {
-      notify("Choose a CSV file for local data analysis.", undefined, "error");
+      notify("Choose a CSV file.", undefined, "error", "Local data analysis needs a file with the .csv extension.");
       return;
     }
     if (f.size > 2 * 1024 * 1024) {
-      notify("Choose a CSV smaller than 2 MB.", undefined, "error");
+      notify("CSV file is too large.", undefined, "error", "Choose a CSV smaller than 2 MB.");
       return;
     }
     try {
       const stats = parseCSV(await f.text());
       setFile({ name: f.name, stats });
       setCategory("data");
-      notify(`${f.name} is ready · ${stats.rows} rows.`);
+      notify(`${f.name} is ready.`, undefined, "success", `${stats.rows} rows available for local analysis.`);
     } catch (err) {
-      notify(err.message, undefined, "error");
+      notify("Couldn’t read this CSV.", undefined, "error", err.message);
     }
   }
   function useExample(example, i, kind = category) {
+    setSelectedScenario(null);
+    setDraftContext(null);
+    setClarifyIntent(false);
+    setDraftNotice("");
     setCategory(kind);
     setQuestion(example[0]);
     if (kind === "data" && (i === 0 || i === 2)) sample();
     else setFile(null);
     input.current?.focus();
+  }
+  function chooseScenario(scenario, demo = false) {
+    nav("home");
+    setActive(null);
+    setDraftContext(null);
+    if (demo && Number.isInteger(scenario.example)) useExample(EXAMPLES[scenario.kind][scenario.example], scenario.example, scenario.kind);
+    else {
+      setQuestion(scenario.prompt);
+      if (scenario.kind !== "data") setFile(null);
+    }
+    setSelectedScenario(scenario);
+    setClarifyIntent(false);
+    setDraftNotice("");
+    requestAnimationFrame(() => {
+      const field = input.current;
+      if (!field) return;
+      field.focus();
+      const start = field.value.indexOf("[");
+      const end = field.value.indexOf("]", start);
+      if (start >= 0 && end > start) field.setSelectionRange(start, end + 1);
+      field.scrollIntoView({ block: "center", behavior: reducedMotion ? "instant" : "smooth" });
+    });
+  }
+  function continueResearch(record, prompt) {
+    const context = researchContext(record);
+    nav("home");
+    setActive(null);
+    setDraftContext(context);
+    setQuestion(prompt);
+    setFile(context.file);
+    setSelectedScenario(null);
+    setClarifyIntent(false);
+    setDraftNotice("");
+    requestAnimationFrame(() => {
+      input.current?.focus();
+      input.current?.scrollIntoView({ block: "center", behavior: reducedMotion ? "instant" : "smooth" });
+    });
+  }
+  function useDemoExample() {
+    const intent = researchIntent(question);
+    const kind = intent === "clarify" ? "literature" : intent;
+    const index = kind === "literature" ? 1 : 0;
+    useExample(EXAMPLES[kind][index], index, kind);
   }
   function launch(t) {
     if (guide) setGuidedId(t.id);
@@ -634,7 +697,7 @@ export function App() {
     setActive(t.id);
     nav("loading");
   }
-  function submit(e) {
+  function submit(e, intentChoice) {
     e?.preventDefault();
     if (!question.trim()) {
       input.current?.focus();
@@ -646,17 +709,39 @@ export function App() {
       );
       return;
     }
-    const kind =
-      file || /csv|numeric column|column mean/i.test(question)
-        ? "data"
-        : /hypothes|experimental ideas/i.test(question)
-          ? "hypotheses"
-          : "literature";
+    if (hasPromptPlaceholder(question)) {
+      setDraftNotice(selectedScenario?.example === null
+        ? "Replace the text in brackets with your topic. Your question stays editable."
+        : "Replace the text in brackets with your topic, or use a demo example below.");
+      input.current?.focus();
+      return;
+    }
+    if (selectedScenario?.example === null) {
+      setDraftNotice("Your question is kept. This scenario is a prompt template for demonstration and has no prepared answer in this local preview.");
+      return;
+    }
+    const kind = intentChoice || researchIntent(question, Boolean(file));
+    if (kind === "clarify") {
+      setClarifyIntent(true);
+      setDraftNotice("");
+      return;
+    }
+    if (draftContext && kind === "hypotheses") {
+      setDraftNotice("This local preview can retrieve passages from your previous answer. New hypotheses from that context need a connected AI service.");
+      return;
+    }
+    if (kind !== "data" && !draftContext && !supportsPreparedTopic(question)) {
+      setDraftNotice("Your question is kept. This local preview can only show prepared cardiac reprogramming content. Use a demo example to try the full flow.");
+      return;
+    }
+    setClarifyIntent(false);
+    setDraftNotice("");
     const t = {
       id: crypto.randomUUID(),
       question: question.trim(),
       kind,
       file,
+      context: draftContext,
     };
     if (kind === "hypotheses") {
       setPlan(t);
@@ -749,7 +834,7 @@ export function App() {
   }
   function editFinding(id, contentMarkdown) {
     setBooks((previous) => updateFinding(previous, book.id, id, { contentMarkdown }));
-    notify("Notebook answer updated. Original research kept.");
+    notify("Notebook answer updated.", undefined, "success", "Original research kept.");
   }
   function removeFinding(id) {
     const index = book.findings.findIndex((item) => item.id === id);
@@ -807,7 +892,7 @@ export function App() {
       await navigator.clipboard.writeText(markdown(current));
       notify("Answer and source links copied.");
     } catch {
-      notify("Clipboard unavailable. Use Export instead.", undefined, "error");
+      notify("Clipboard unavailable.", undefined, "error", "Use Export instead.");
     }
   }
   const answerDetails = current && (
@@ -878,6 +963,14 @@ export function App() {
             mechanism, expression, validation and safety. Those sections are
             outside this prepared example.
           </p>
+        </>
+      )}
+      {current.result.scenario === "context" && (
+        <>
+          <h3>About this answer</h3>
+          <p>This local preview retrieves passages from the selected research answer. It uses the content attached when you asked this question and does not search for new evidence.</p>
+          <h3>Previous research</h3>
+          <p>{current.context.question}</p>
         </>
       )}
       {current.result.needsFile && (
@@ -1113,14 +1206,14 @@ export function App() {
       >
         Skip to content
       </a>
-      <Sidebar aria-label="Research navigation" className="border-r-0">
+      <Sidebar aria-label="Research navigation" className="border-r-0 text-[length:var(--text-navigation)] leading-5">
         <SidebarHeader className="gap-5 px-4 pt-5 pb-3">
           <div className="flex items-center gap-3 px-1">
             <Avatar className="size-8">
               <AvatarImage src="/assets/co-scientist.png" alt="" />
-              <AvatarFallback>Co</AvatarFallback>
+              <AvatarFallback className="text-[length:var(--text-navigation)] leading-5">Co</AvatarFallback>
             </Avatar>
-            <div className="text-xs leading-5">
+            <div className="text-[length:var(--text-navigation)] leading-5">
               <p className="font-semibold">Bayer AI Co-Scientist</p>
               <p className="text-muted-foreground">Research workspace</p>
             </div>
@@ -1136,22 +1229,20 @@ export function App() {
           </div>
           <Button
             variant="outline"
-            className="w-full justify-start rounded-md border-0 bg-primary/10 text-primary shadow-none hover:bg-primary/15"
+            className="h-10 w-full justify-start rounded-md border-0 bg-primary/10 text-[length:var(--text-navigation)] leading-5 text-primary shadow-none hover:bg-primary/15"
             onClick={fresh}
           >
             <Plus />
             New research
           </Button>
-          <div className="relative">
-            <Search className="pointer-events-none absolute top-3 left-3 size-4 text-primary" />
-            <Input
-              className="h-10 rounded-md border-input bg-transparent pl-9 !text-xs font-medium text-primary placeholder:text-primary shadow-none"
-              aria-label="Search research history"
-              placeholder="Search research"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            aria-label="Search research history"
+            placeholder="Search research"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onClear={() => setSearch("")}
+            clearLabel="Clear research search"
+          />
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup className="px-3">
@@ -1163,7 +1254,7 @@ export function App() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <SidebarMenuButton
-                          className="h-9 rounded-xl hover:bg-primary/10 data-[active=true]:bg-white data-[active=true]:text-foreground data-[active=true]:hover:bg-white"
+                          className="h-10 rounded-sm hover:bg-primary/10 data-[active=true]:bg-white data-[active=true]:text-foreground data-[active=true]:hover:bg-white"
                           isActive={view === "loading"}
                           onClick={() => nav("loading")}
                           data-testid="pending-chat"
@@ -1177,7 +1268,7 @@ export function App() {
                       </TooltipTrigger>
                       <TooltipContent
                         side="right"
-                        className="max-w-72 text-xs leading-relaxed"
+                        className="max-w-72 text-[length:var(--text-navigation)] leading-5 leading-relaxed"
                       >
                         {task.question} · Research in progress
                       </TooltipContent>
@@ -1190,7 +1281,7 @@ export function App() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <SidebarMenuButton
-                            className="h-9 rounded-xl hover:bg-primary/10 data-[active=true]:bg-white data-[active=true]:text-foreground data-[active=true]:hover:bg-white"
+                            className="h-10 rounded-sm hover:bg-primary/10 data-[active=true]:bg-white data-[active=true]:text-foreground data-[active=true]:hover:bg-white"
                             data-testid="history-chat"
                             isActive={r.id === active && view === "answer"}
                             onClick={() => openRecord(r)}
@@ -1203,7 +1294,7 @@ export function App() {
                         </TooltipTrigger>
                         <TooltipContent
                           side="right"
-                          className="max-w-72 text-xs leading-relaxed"
+                          className="max-w-72 text-[length:var(--text-navigation)] leading-5 leading-relaxed"
                         >
                           {r.question}
                         </TooltipContent>
@@ -1222,12 +1313,12 @@ export function App() {
                 )}
               </SidebarMenu>
               {!records.length && (
-                <p className="px-2 py-4 text-xs leading-relaxed text-muted-foreground">
+                <p className="px-2 py-4 text-[length:var(--text-navigation)] leading-5 leading-relaxed text-muted-foreground">
                   Your research will appear here.
                 </p>
               )}
               {search && !matchingHistory.length && (
-                <p className="px-2 py-4 text-xs text-muted-foreground">
+                <p className="px-2 py-4 text-[length:var(--text-navigation)] leading-5 text-muted-foreground">
                   No matching research.
                 </p>
               )}
@@ -1237,6 +1328,7 @@ export function App() {
             <SidebarGroup>
               <Button
                 variant="secondary"
+                className="text-[length:var(--text-navigation)] leading-5"
                 onClick={() =>
                   openRecord(records.find((r) => r.id === readyId))
                 }
@@ -1250,11 +1342,11 @@ export function App() {
         <SidebarFooter className="p-4">
           <div className="flex items-center gap-3 px-1 py-2">
             <Avatar className="size-8">
-              <AvatarFallback className="bg-primary/15 text-xs font-semibold text-primary">
+              <AvatarFallback className="bg-primary/15 text-[length:var(--text-navigation)] leading-5 font-semibold text-primary">
                 R
               </AvatarFallback>
             </Avatar>
-            <div className="space-y-1 text-xs">
+            <div className="space-y-1 text-[length:var(--text-navigation)] leading-5">
               <p className="font-medium">Researcher</p>
               <p className="text-muted-foreground">Saved on this device</p>
             </div>
@@ -1262,17 +1354,17 @@ export function App() {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="m-3 h-[calc(100svh-1.5rem)] min-h-0 min-w-0 flex-1 overflow-hidden rounded-3xl border-0 bg-background shadow-none max-md:m-0 max-md:h-svh max-md:rounded-none">
-        <header className="relative z-20 flex h-16 shrink-0 items-center gap-3 bg-background px-4 sm:px-6">
+        <header className="relative z-20 flex h-28 shrink-0 items-start gap-3 bg-background px-4 pt-2 sm:h-16 sm:items-center sm:px-6 sm:pt-0">
           <SidebarTrigger
             className="size-10 rounded-full text-foreground hover:bg-primary/15 hover:text-primary active:bg-primary/20 [&_svg]:size-4"
             aria-label="Toggle navigation"
           />
           <WorkspaceTabs
-            className="absolute left-1/2 -translate-x-1/2"
-            value={view === "notebook" ? "notebook" : "chat"}
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 sm:bottom-auto"
+            value={workspaceTab}
             onValueChange={(value) =>
               nav(
-                value === "notebook" ? "notebook" : current ? "answer" : "home",
+                value === "notebook" ? "notebook" : value === "scenarios" ? "scenarios" : current ? "answer" : "home",
               )
             }
             aria-label="Main navigation"
@@ -1299,15 +1391,15 @@ export function App() {
         <div
           id="content"
           ref={workspaceScroll}
-          className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-8", view === "notebook" && books.length > 0 && "xl:overflow-hidden xl:px-0 xl:py-0")}
+          className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-8", fitHome && "lg:py-3", view === "notebook" && books.length > 0 && "xl:overflow-hidden xl:px-0 xl:py-0")}
           tabIndex={-1}
         >
           <div
             role="tabpanel"
-            id={`workspace-${view === "notebook" ? "notebook" : "chat"}-panel`}
-            aria-labelledby={`workspace-${view === "notebook" ? "notebook" : "chat"}-tab`}
+            id={`workspace-${workspaceTab}-panel`}
+            aria-labelledby={`workspace-${workspaceTab}-tab`}
             tabIndex={0}
-            className={cn("outline-none focus-visible:ring-2 focus-visible:ring-ring", view === "notebook" && books.length > 0 && "xl:h-full")}
+            className={cn("outline-none focus-visible:ring-2 focus-visible:ring-ring", fitHome && "lg:flex lg:min-h-full lg:flex-col", view === "notebook" && books.length > 0 && "xl:h-full")}
           >
             <Input
               hidden
@@ -1318,9 +1410,10 @@ export function App() {
               aria-label="Upload CSV file"
               onChange={attach}
             />
+            {view === "scenarios" && <ScenarioCatalog onChoose={chooseScenario} recentResearch={recentResearch} onContinue={continueResearch} onOpen={openRecord} />}
             {view === "home" && (
-              <div className="mx-auto w-full max-w-3xl space-y-7 pt-4 sm:pt-6">
-                <div className="space-y-3">
+              <div className={cn("mx-auto w-full max-w-3xl space-y-7 pt-4 sm:pt-6", fitHome && "flex max-w-4xl flex-col gap-4 space-y-0 lg:my-auto lg:pt-0 lg:[@media(max-height:899px)]:gap-3")}>
+                <div className={cn("space-y-3", fitHome && "shrink-0 space-y-2")}>
                   <div className="flex flex-wrap items-center gap-2">
                     <Identity />
                     {!guide && (
@@ -1337,7 +1430,7 @@ export function App() {
                   <h1 className="text-2xl font-semibold tracking-tight">
                     Ask a scientific question
                   </h1>
-                  <p className="text-base leading-relaxed text-muted-foreground">
+                  <p className={cn("text-base leading-relaxed text-muted-foreground", fitHome && "lg:[@media(max-height:899px)]:hidden")}>
                     Find evidence in the literature, explore your data, or
                     develop hypotheses.
                   </p>
@@ -1349,19 +1442,16 @@ export function App() {
                   onFinish={finishGuidance}
                 >
                   <form
-                    className="space-y-3 overflow-hidden rounded-2xl border-0 bg-secondary/70 p-4 outline-1 outline-transparent -outline-offset-1 transition-[outline-color] hover:outline-primary/50 focus-within:outline-primary"
+                    className={cn("space-y-3 overflow-hidden rounded-2xl border-0 bg-secondary/70 p-4 outline-1 outline-transparent -outline-offset-1 transition-[outline-color] hover:outline-primary/50 focus-within:outline-primary", fitHome && "shrink-0 space-y-2 lg:[@media(max-height:899px)]:p-3")}
                     onSubmit={submit}
                   >
                     <Label htmlFor="question">Your question</Label>
+                    {draftContext && <ResearchContextChip context={draftContext} onRemove={() => setDraftContext(null)} onOpen={records.some((record) => record.id === draftContext.id) ? () => openRecord(records.find((record) => record.id === draftContext.id)) : undefined} />}
                     <Textarea
                       id="question"
                       ref={input}
-                      className="min-h-28 resize-none rounded-none border-0 bg-transparent p-0 text-base shadow-none hover:outline-none focus-visible:ring-0"
-                      aria-describedby={
-                        firstQuestion && !task
-                          ? "research-guide-1-description"
-                          : undefined
-                      }
+                      className={cn("min-h-28 resize-none rounded-none border-0 bg-transparent p-0 text-base shadow-none hover:outline-none focus-visible:ring-0", fitHome && "h-16 min-h-16 lg:h-6 lg:min-h-6 lg:[@media(min-height:900px)]:h-16 lg:[@media(min-height:900px)]:min-h-16")}
+                      aria-describedby={[firstQuestion && !task ? "research-guide-1-description" : "", selectedScenario && !clarifyIntent ? "scenario-draft-hint" : "", draftNotice ? "question-notice" : ""].filter(Boolean).join(" ") || undefined}
                       placeholder={
                         file
                           ? "Which columns should we explore?"
@@ -1371,7 +1461,11 @@ export function App() {
                       }
                       value={question}
                       maxLength={3000}
-                      onChange={(e) => setQuestion(e.target.value)}
+                      onChange={(e) => {
+                        setQuestion(e.target.value);
+                        setClarifyIntent(false);
+                        setDraftNotice("");
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && (e.ctrlKey || e.metaKey))
                           submit(e);
@@ -1437,64 +1531,16 @@ export function App() {
                     </div>
                   </form>
                 </ResearchGuide>
-                {!firstQuestion && (
-                  <section
-                    aria-label="Editable question examples"
-                    className="space-y-3"
-                  >
-                    <p className="text-center text-xs font-medium text-muted-foreground">
-                      Try one of these examples
-                    </p>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      {[
-                        [
-                          "hypotheses",
-                          "Hypothesis Generation",
-                          0,
-                          MessageSquare,
-                        ],
-                        ["literature", "Literature Review", 1, BookOpen],
-                        ["data", "Data Analysis", 0, ChartColumn],
-                        ["literature", "Comparative Study", 2, ArrowRight],
-                        ["data", "Data Visualization", 2, ChartColumn],
-                        ["literature", "Target Profiling", 3, Database],
-                      ].map(([kind, label, index, Icon]) => (
-                        <Button
-                          variant="outline"
-                          className="group flex h-full min-h-56 w-full flex-col items-start justify-start gap-4 whitespace-normal rounded-xl border-transparent bg-secondary/60 p-4 text-left font-normal shadow-none transition-colors duration-150 hover:bg-accent active:bg-primary/20 motion-reduce:transition-none"
-                          key={label}
-                          onClick={() =>
-                            useExample(EXAMPLES[kind][index], index, kind)
-                          }
-                        >
-                          <span className="flex items-center gap-3 text-xs font-medium">
-                            <span
-                              className={cn(
-                                "flex size-8 shrink-0 items-center justify-center rounded-lg",
-                                kind === "hypotheses"
-                                  ? "bg-violet-100 text-violet-700"
-                                  : kind === "data"
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : "bg-sky-100 text-primary",
-                              )}
-                            >
-                              <Icon className="size-4" />
-                            </span>
-                            {label}
-                          </span>
-                          <span className="block text-base leading-relaxed text-foreground">
-                            {EXAMPLES[kind][index][0]}
-                          </span>
-                          <span className="mt-auto flex w-full items-center justify-between gap-2 pt-2 text-xs font-medium text-primary">
-                            Use example
-                            <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/15 motion-reduce:transition-none">
-                              <ArrowRight className="size-3.5" />
-                            </span>
-                          </span>
-                        </Button>
-                      ))}
-                    </div>
-                  </section>
+                {draftNotice && (
+                  <div className="space-y-3">
+                    <p id="question-notice" role="status" className="text-base leading-relaxed text-primary">{draftNotice}</p>
+                    {!selectedScenario && <Button type="button" variant="secondary" onClick={useDemoExample}>Use demo example</Button>}
+                  </div>
+                )}
+                {selectedScenario && !clarifyIntent && <ScenarioDraftHint scenario={selectedScenario} onExample={() => chooseScenario(selectedScenario, true)} onDismiss={() => setSelectedScenario(null)} />}
+                {clarifyIntent && <IntentClarification onChoose={(kind) => submit(undefined, kind)} />}
+                {showScenarioPreview && (
+                    <ScenarioCards onChoose={chooseScenario} onBrowse={() => nav("scenarios")} />
                 )}
               </div>
             )}
@@ -1581,7 +1627,7 @@ export function App() {
                         <Spinner className="size-6 text-primary" />
                       </span>
                       <Badge variant="secondary" className="rounded-full bg-primary/10 px-3 py-1 text-primary">
-                        {task.kind === "data"
+                        {task.context && task.kind !== "data" ? "Saved content only" : task.kind === "data"
                           ? "Local data analysis"
                           : "Demo research"}
                       </Badge>
@@ -1592,6 +1638,7 @@ export function App() {
                           "Understanding your question",
                           task.kind === "data"
                             ? "Checking your dataset"
+                            : task.context ? "Finding passages in your previous answer"
                             : "Reviewing the evidence",
                           "Preparing a concise answer",
                         ][stage]
@@ -1613,6 +1660,7 @@ export function App() {
                         "Understand the question",
                         task.kind === "data"
                           ? "Calculate descriptive statistics"
+                          : task.context ? "Retrieve passages from the selected answer"
                           : "Review relevant sources",
                         "Prepare findings and next steps",
                       ].map((label, i) => (
@@ -1672,12 +1720,14 @@ export function App() {
                 <p className="text-xs text-muted-foreground">
                   {task.kind === "data"
                     ? "CSV calculations run locally in your browser."
+                    : task.context ? "Local retrieval from the selected answer · no new evidence generated"
                     : "Example workflow · no live AI request"}
                 </p>
               </div>
             )}
             {view === "answer" && current && (
               <div className="mx-auto max-w-3xl space-y-8">
+                {current.context && <ResearchContextChip context={current.context} onOpen={records.some((record) => record.id === current.context.id) ? () => openRecord(records.find((record) => record.id === current.context.id)) : undefined} />}
                 <QuestionBubble>{current.question}</QuestionBubble>
                 <article
                   aria-label="Co-Scientist answer"
@@ -1686,7 +1736,7 @@ export function App() {
                   <div className="flex items-center justify-between gap-2">
                     <Identity
                       label={
-                        current.kind === "data"
+                        current.result.scenario === "context" ? "Saved content only" : current.kind === "data"
                           ? "Local calculation"
                           : "Example answer"
                       }
@@ -1721,7 +1771,7 @@ export function App() {
                           ? "Direct answer"
                           : current.result.title}
                     </h2>
-                    <p>{current.result.summary}</p>
+                    {current.result.scenario === "context" ? <NotebookMarkdown>{current.result.summary}</NotebookMarkdown> : <p>{current.result.summary}</p>}
                     {current.kind === "literature" && !current.result.scenario && !current.result.needsFile && (
                       <p>
                         Cardiac marker expression alone does not establish a mature functional phenotype. Compare experimental conditions and endpoints in the original papers.
@@ -1787,34 +1837,38 @@ export function App() {
                                   column.
                                 </p>
                               ) : (
-                                <div className="divide-y">
+                                <ul className="divide-y divide-border">
                                   {current.result.sources.map((source) => (
-                                    <a
+                                    <li
                                       key={source.url}
-                                      href={source.url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      onClick={() => setReviewedId(current.id)}
-                                      className="group flex items-start gap-3 rounded-md px-4 py-4 transition-colors hover:bg-white focus-visible:bg-white focus-visible:outline-2 focus-visible:outline-primary"
+                                      className="py-1 first:pt-0 last:pb-0"
                                     >
-                                      <div className="flex-1 space-y-2">
-                                        <p className="text-base leading-relaxed text-primary group-hover:underline">
-                                          {source.title}
-                                        </p>
-                                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                          <span>
-                                            {source.author} · {source.journal} ·{" "}
-                                            {source.year}
-                                          </span>
-                                          <Badge variant="outline">
-                                            {source.model}
-                                          </Badge>
+                                      <a
+                                        href={source.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={() => setReviewedId(current.id)}
+                                        className="group flex items-start gap-3 rounded-md p-4 transition-colors hover:bg-white focus-visible:bg-white focus-visible:outline-2 focus-visible:outline-primary"
+                                      >
+                                        <div className="flex-1 space-y-2">
+                                          <p className="text-base leading-relaxed text-primary group-hover:underline">
+                                            {source.title}
+                                          </p>
+                                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                            <span>
+                                              {source.author} · {source.journal} ·{" "}
+                                              {source.year}
+                                            </span>
+                                            <Badge variant="outline">
+                                              {source.model}
+                                            </Badge>
+                                          </div>
                                         </div>
-                                      </div>
-                                      <ArrowUpRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
-                                    </a>
+                                        <ArrowUpRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
+                                      </a>
+                                    </li>
                                   ))}
-                                </div>
+                                </ul>
                               )}
                             </AccordionContent>
                           </AccordionItem>
@@ -1832,7 +1886,7 @@ export function App() {
                             initial={false}
                             animate={{ height: opened.analysis ? 0 : 176, opacity: opened.analysis ? 0 : 1 }}
                             transition={{ duration: reducedMotion ? 0 : 0.2, ease: "easeOut" }}
-                            className="relative overflow-hidden" aria-hidden="true" inert="">
+                                  className="relative overflow-hidden" aria-hidden="true" inert>
                             <div className="pointer-events-none">{answerDetails}</div>
                             <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background via-background/70 to-transparent" />
                           </motion.div>
@@ -1956,7 +2010,7 @@ export function App() {
                       Recommended follow-up questions
                     </p>
                     <div className="flex flex-col items-start gap-2">
-                      {(current.kind === "literature"
+                      {(current.context ? ["Summarize the findings in this research.", "Find passages about limitations and evidence gaps in this research."] : current.kind === "literature"
                         ? [
                             "Which experimental endpoints were used in mouse and human studies?",
                             "How do GMT and GHMT differ in cardiac reprogramming?",
@@ -1974,6 +2028,7 @@ export function App() {
                           variant="outline"
                           className="h-auto min-h-9 whitespace-normal text-left"
                           onClick={() => {
+                            setDraftContext(current.context || null);
                             setQuestion(prompt);
                             if (current.kind !== "data") setFile(null);
                             setCategory(
@@ -2054,12 +2109,7 @@ export function App() {
               </div>
             )}
           </div>
-          <div
-            role="tabpanel"
-            hidden
-            id={`workspace-${view === "notebook" ? "chat" : "notebook"}-panel`}
-            aria-labelledby={`workspace-${view === "notebook" ? "chat" : "notebook"}-tab`}
-          />
+          {["chat", "scenarios", "notebook"].filter((tab) => tab !== workspaceTab).map((tab) => <div key={tab} role="tabpanel" hidden id={`workspace-${tab}-panel`} aria-labelledby={`workspace-${tab}-tab`} />)}
         </div>
       </SidebarInset>
       <AnimatePresence initial={false}>
