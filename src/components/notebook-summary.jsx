@@ -17,6 +17,7 @@ export function NotebookSummary({ book }) {
       {text ? (
         <NotebookMarkdown
           documentView
+          compact
           findingId="notebook-summary"
           sources={notebookSources(book)}
         >

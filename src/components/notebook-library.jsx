@@ -1,3 +1,4 @@
+import { NotebookBreadcrumb } from "./notebook-breadcrumb";
 import { placeNotebookItem } from "../notebook-presentation";
 import { useNotebookSort, NotebookDragHandle } from "./notebook-sortable";
 import { notebookMatches } from "../notebook-search.js";
@@ -177,9 +178,17 @@ export function NotebookLibrary({ books, onOpen, onNew, onBooks, onNotify }) {
             Keep research, sources and comments together.
           </p>
         </header>
+        <NotebookBreadcrumb
+          folder={currentFolder?.title}
+          onHome={() => {
+            setFolderId(null);
+            setSearch("");
+          }}
+        />
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-48 flex-1">
             <SearchInput
+              inputClassName="h-10"
               aria-label="Search notebooks"
               placeholder="Search notebooks and their content"
               value={search}
@@ -211,28 +220,7 @@ export function NotebookLibrary({ books, onOpen, onNew, onBooks, onNotify }) {
         </div>
         {
           <section aria-label="Notebook folders" className="space-y-3">
-            {currentFolder ? (
-              <nav
-                aria-label="Notebook folder breadcrumb"
-                className="flex items-center gap-2 text-sm"
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setFolderId(null);
-                    setSearch("");
-                  }}
-                >
-                  All notebooks
-                </Button>
-                <ArrowRight className="size-3 text-muted-foreground" />
-                <span aria-current="page" className="flex items-center gap-2">
-                  <Folder className="size-4" />
-                  {currentFolder.title}
-                </span>
-              </nav>
-            ) : (
+            {!currentFolder && (
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
@@ -326,7 +314,7 @@ export function NotebookLibrary({ books, onOpen, onNew, onBooks, onNotify }) {
               style={{ opacity: sorting.dragging?.id === book.id ? 0.3 : 1 }}
               data-sort-group="notebook-library"
               data-sort-id={book.id}
-              className={`flex items-center gap-2 rounded-2xl border bg-secondary p-4 ${sorting.target === book.id ? "border-primary ring-2 ring-primary/20" : "border-transparent"}`}
+              className={`group flex items-center gap-2 rounded-2xl border bg-secondary p-4 ${sorting.target === book.id ? "border-primary ring-2 ring-primary/20" : "border-transparent"}`}
             >
               <NotebookDragHandle
                 label={book.title}
@@ -337,9 +325,9 @@ export function NotebookLibrary({ books, onOpen, onNew, onBooks, onNotify }) {
                 variant="ghost"
                 aria-label={`Open notebook ${book.title}`}
                 onClick={() => onOpen(book.id)}
-                className="h-auto min-w-0 flex-1 justify-start gap-3 whitespace-normal p-0 text-left hover:bg-transparent has-[>svg]:px-0 sm:gap-4"
+                className="h-auto min-w-0 flex-1 justify-start gap-3 whitespace-normal p-0 text-left hover:bg-transparent active:bg-transparent has-[>svg]:px-0 sm:gap-4"
               >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground group-focus-within:bg-primary group-focus-within:text-primary-foreground">
                   <NotebookPen className="!size-5" />
                 </span>
                 <span className="min-w-0 flex-1 space-y-1">
@@ -423,7 +411,7 @@ export function NotebookLibrary({ books, onOpen, onNew, onBooks, onNotify }) {
                   transform: `translate3d(${sorting.dragging.dx}px,${sorting.dragging.dy}px,0)`,
                 }}
               >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground group-focus-within:bg-primary group-focus-within:text-primary-foreground">
                   <NotebookPen className="size-5" />
                 </span>
                 <div className="min-w-0 flex-1 space-y-1">

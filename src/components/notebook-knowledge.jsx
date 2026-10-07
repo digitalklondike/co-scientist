@@ -103,18 +103,19 @@ export function CitationInsert({ finding, inputRef, draft, onDraft }) {
       <PopoverTrigger asChild>
         <Button
           type="button"
-          variant="outline"
-          size="sm"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Insert citation"
           onClick={() => {
             selection.current = {
               start: inputRef.current?.selectionStart ?? draft.length,
               end: inputRef.current?.selectionEnd ?? draft.length,
             };
           }}
+          tooltip="Insert a saved source at your cursor. After saving, click the citation to preview its source. Add a source first if none are available."
           disabled={!finding.result.sources.length}
         >
           <BookOpen />
-          Insert citation
         </Button>
       </PopoverTrigger>
       <PopoverContent

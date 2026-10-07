@@ -29,6 +29,20 @@ import { readNoteDraft, clearNoteDraft } from "../notebook-notes.js";
 import { NoteNavigation } from "./note-navigation-context.js";
 import { commentsFor } from "../notebook-flows.js";
 
+function participantAvatar(author) {
+  if (author === "You") return "bg-primary/10 text-primary";
+  const colors = [
+    "bg-[#e6f1ec] text-[#376653]",
+    "bg-[#ede9f6] text-[#625184]",
+    "bg-[#f7ebdf] text-[#825738]",
+  ];
+  const hash = [...author].reduce(
+    (sum, letter) => sum + letter.codePointAt(0),
+    0,
+  );
+  return colors[hash % colors.length];
+}
+
 export function NotebookNotesProvider({ children }) {
   const editors = useRef(new Map());
   const continuation = useRef(null);
@@ -145,6 +159,9 @@ export function NotebookNote({
   );
   const [showResolved, setShowResolved] = useState(false);
   const [all, setAll] = useState(false);
+  useEffect(() => {
+    if (finding.demoParticipantsAdded) setAll(true);
+  }, [finding.demoParticipantsAdded]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [warning, setWarning] = useState(
@@ -290,9 +307,7 @@ export function NotebookNote({
       setExpanded(true);
       setError("");
       setWarning("");
-      requestAnimationFrame(() =>
-        inputRef.current?.focus({ preventScroll: true }),
-      );
+      requestAnimationFrame(() => inputRef.current?.focus());
     });
   }
   async function action(comment, type) {
@@ -367,15 +382,16 @@ export function NotebookNote({
       id={`comments-${finding.id}`}
       tabIndex={-1}
       aria-label={`Comments for ${finding.question}`}
-      className="scroll-mt-6 space-y-4 rounded-2xl border border-border bg-secondary px-4 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring [overflow-anchor:none]"
+      className="scroll-mt-6 space-y-3 rounded-2xl bg-secondary px-4 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring [overflow-anchor:none]"
     >
-      <header className="flex flex-wrap items-center justify-between gap-3">
+      <header className="flex items-center gap-2">
         <button
           type="button"
-          aria-expanded={expanded}
+          disabled={!comments.length}
+          aria-expanded={comments.length ? expanded : undefined}
           aria-controls={`comment-list-${editorId}`}
           onClick={() => navigation.request(() => setExpanded(!expanded))}
-          className="flex min-h-10 items-center gap-2 rounded-md max-sm:min-h-11 text-base font-semibold focus-visible:outline-2 focus-visible:outline-ring"
+          className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-md max-sm:min-h-11 text-[14px] font-semibold focus-visible:outline-2 focus-visible:outline-ring"
         >
           <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
             <MessageSquare className="size-4" />
@@ -384,14 +400,16 @@ export function NotebookNote({
           <NotebookCount>
             {comments.reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0)}
           </NotebookCount>
-          <ChevronDown
-            className={`size-4 text-muted-foreground transition-transform duration-150 motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
-          />
+          {!!comments.length && (
+            <ChevronDown
+              className={`size-4 text-muted-foreground transition-transform duration-150 motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
+            />
+          )}
         </button>
-        {!composer && role !== "viewer" && (
+        {!composer && role !== "viewer" && (!expanded || !visible.length) && (
           <Button
-            variant="outline"
-            className="bg-white"
+            variant="ghost"
+            className="shrink-0 bg-white"
             onClick={() => start()}
           >
             <MessageSquare />
@@ -399,8 +417,8 @@ export function NotebookNote({
           </Button>
         )}
       </header>
-      {expanded && (
-        <div id={`comment-list-${editorId}`} className="space-y-4 pb-2">
+      {expanded && (!!comments.length || composer) && (
+        <div id={`comment-list-${editorId}`} className="space-y-2 pb-2">
           {!!resolvedCount && (
             <Button
               variant="ghost"
@@ -411,21 +429,16 @@ export function NotebookNote({
               {showResolved ? "Hide" : "Show"} {resolvedCount} resolved
             </Button>
           )}
-          {!visible.length && !composer && (
-            <NotebookHint>
-              {resolvedCount
-                ? "All discussions resolved."
-                : "Capture an observation, question or next step for this block."}
-            </NotebookHint>
+          {!visible.length && !composer && !!resolvedCount && (
+            <NotebookHint>All discussions resolved.</NotebookHint>
           )}
           {(all ? visible : visible.slice(0, 3)).map((comment) => (
-            <article
-              key={comment.id}
-              className={`space-y-3 rounded-xl bg-white p-4 ${comment.resolved ? "border border-border" : ""}`}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
+            <article key={comment.id} className="space-y-2 py-2">
+              <div className="!mb-1 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  <span
+                    className={`flex size-7 items-center justify-center rounded-full text-xs font-semibold ${participantAvatar(comment.author)}`}
+                  >
                     {comment.author === "You"
                       ? "Y"
                       : comment.author.slice(0, 1)}
@@ -445,11 +458,11 @@ export function NotebookNote({
                   </span>
                 )}
               </div>
-              <p className="whitespace-pre-wrap break-words text-[14px] leading-[1.5]">
+              <p className="whitespace-pre-wrap break-words ps-9 text-[14px] leading-[1.5]">
                 {comment.text}
               </p>
               {!!comment.replies?.length && (
-                <div className="space-y-3 border-s-2 border-accent ps-4">
+                <div className="!mt-4 space-y-3 ps-14 sm:ps-16">
                   {comment.replies.map((reply) => (
                     <div key={reply.id}>
                       <p className="mb-1 text-xs text-muted-foreground">
@@ -463,7 +476,7 @@ export function NotebookNote({
                         {reply.text}
                       </p>
                       {role !== "viewer" && reply.author === "You" && (
-                        <div className="mt-2 flex gap-1">
+                        <div className="mt-2 flex gap-1 [&_button]:opacity-50 [&_button:hover]:opacity-100 [&_button:focus-visible]:opacity-100">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -491,7 +504,7 @@ export function NotebookNote({
                 </div>
               )}
               {role !== "viewer" && (
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 ps-9 [&_button]:h-7 [&_button]:px-2 [&_button]:opacity-50 [&_button:hover]:opacity-100 [&_button:focus-visible]:opacity-100">
                   {role === "editor" && (
                     <Button
                       variant="ghost"
@@ -533,43 +546,66 @@ export function NotebookNote({
                     <Check />
                     {comment.resolved ? "Reopen" : "Resolve"}
                   </Button>
-                  <Button
-                    disabled={comment.author !== "You"}
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => start("edit", comment)}
-                  >
-                    <Pencil />
-                    Edit
-                  </Button>
-                  <Button
-                    disabled={comment.author !== "You"}
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() =>
-                      navigation.request(() =>
-                        action(comment, "comment-delete"),
-                      )
-                    }
-                  >
-                    <Trash2 />
-                    Delete
-                  </Button>
+                  {comment.author === "You" && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => start("edit", comment)}
+                      >
+                        <Pencil />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() =>
+                          navigation.request(() =>
+                            action(comment, "comment-delete"),
+                          )
+                        }
+                      >
+                        <Trash2 />
+                        Delete
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </article>
           ))}
-          {visible.length > 3 && (
-            <Button variant="ghost" size="sm" onClick={() => setAll(!all)}>
-              {all
-                ? "Show fewer comments"
-                : `Show all ${visible.length} comments`}
-            </Button>
+          {!!visible.length && !composer && (
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {visible.length > 3 && !all && (
+                  <Button variant="ghost" onClick={() => setAll(true)}>
+                    Show all {visible.length} comments
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  onClick={() => navigation.request(() => setExpanded(false))}
+                >
+                  <ChevronDown className="rotate-180" />
+                  Collapse comments
+                </Button>
+              </div>
+              {role !== "viewer" && (
+                <Button
+                  variant="ghost"
+                  className="bg-white"
+                  onClick={() => start()}
+                >
+                  <MessageSquare />
+                  Add comment
+                </Button>
+              )}
+            </div>
           )}
           {composer && role !== "viewer" && (
             <form
-              className="space-y-3 rounded-xl border border-input bg-white p-4"
+              className="space-y-3 rounded-xl bg-white p-4"
               onSubmit={(e) => {
                 e.preventDefault();
                 save();
@@ -597,7 +633,7 @@ export function NotebookNote({
                 disabled={saving}
                 className="min-h-28"
               />
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="!mb-1 flex flex-wrap items-center justify-between gap-2">
                 <span role="status" className="text-xs text-muted-foreground">
                   {saving
                     ? "Saving…"

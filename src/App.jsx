@@ -1,3 +1,4 @@
+import { addDemoParticipants } from "./notebook-demo-comments.js";
 import { AnswerSelection } from "./components/answer-selection";
 import { createNotebookExcerpt } from "./notebook-excerpts";
 import { NotebookTemplateSelect } from "./components/notebook-knowledge";
@@ -829,7 +830,7 @@ function ResearchWorkspace() {
             ...p,
           ]
         : p.map((b) =>
-            b.id === id ? { ...b, findings: [...b.findings, finding] } : b,
+            b.id === id ? { ...b, findings: [finding, ...b.findings] } : b,
           ),
     ); } catch { notify("Couldn’t save to notebook. Check device storage and retry.", undefined, "error"); return; }
     setBookId(id);
@@ -862,6 +863,11 @@ function ResearchWorkspace() {
     setBooks(next);
     return next;
   }
+  useEffect(() => {
+    if (!books.some(b => b.findings.some(f => f.id === "530b19c4-ae39-4f6d-8ca6-0d8e2097d94e" && !f.demoParticipantsAdded) && (b.accessRole || "editor") === "editor")) return;
+    try { commitBooks(addDemoParticipants); }
+    catch { notify("Couldn’t save the demo comments. Existing comments are unchanged.", undefined, "error"); }
+  }, [books]);
   function changeBook(destinationId, action) {
     const before = booksRef.current.find(b => b.id === destinationId)?.findings.find(f => f.id === action.findingId);
     const deletedIndex = before ? commentsFor(before).findIndex(c => c.id === action.commentId) : -1;
@@ -909,7 +915,7 @@ function ResearchWorkspace() {
     };
     try { commitBooks((previous) => updateFinding(previous, book.id, chatFinding.id, {
       conversation: chatFinding.conversation.map((item) => item.id === message.id ? { ...item, saved: true } : item),
-    }).map((item) => item.id === book.id ? { ...item, findings: [...item.findings, finding] } : item)); } catch { notify("Couldn’t save response.",undefined,"error"); return; }
+    }).map((item) => item.id === book.id ? { ...item, findings: [finding, ...item.findings] } : item)); } catch { notify("Couldn’t save response.",undefined,"error"); return; }
     notify("Response saved to this notebook.");
   }
   function persistConversation(conversation) {

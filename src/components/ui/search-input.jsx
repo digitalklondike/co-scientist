@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 
 export function SearchInput({
   className,
+  inputClassName,
   value,
   onClear,
   clearLabel = "Clear search",
@@ -31,6 +32,7 @@ export function SearchInput({
         className={cn(
           "h-11 rounded-md border-input bg-transparent pl-9 !text-[length:var(--text-search)] leading-5 font-medium text-foreground placeholder:text-muted-foreground shadow-none",
           showClear ? "pr-11" : "pr-3",
+          inputClassName,
         )}
       />
       {showClear && (

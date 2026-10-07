@@ -36,6 +36,7 @@ export function NotebookMarkdown({
   children,
   documentView = false,
   lead = false,
+  compact = false,
   chartSources,
   findingId,
   sources = [],
@@ -62,7 +63,7 @@ export function NotebookMarkdown({
     <div
       className={
         documentView
-          ? `space-y-4 break-words ${lead ? "text-[18px] leading-[1.65]" : "text-[16px] leading-[1.7]"} [&_h3]:!mt-8 [&_h3]:!mb-3 [&_h3]:text-[18px] [&_h3]:font-medium [&_h3]:leading-snug [&_h4]:!mt-6 [&_h4]:text-[16px] [&_h4]:font-medium [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:ps-6 [&_ol]:list-decimal [&_ol]:ps-6 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-secondary [&_pre]:p-3 [&_code]:text-[14px]`
+          ? `${compact ? "space-y-3 [&_h3]:!text-[16px] [&_h3]:!mt-5 [&_h4]:!text-[14px]" : "space-y-4"} break-words ${compact ? "text-[14px] leading-[1.6]" : lead ? "text-[18px] leading-[1.65]" : "text-[16px] leading-[1.7]"} [&_h3]:!mt-8 [&_h3]:!mb-3 [&_h3]:text-[18px] [&_h3]:font-medium [&_h3]:leading-snug [&_h4]:!mt-6 [&_h4]:text-[16px] [&_h4]:font-medium [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:ps-6 [&_ol]:list-decimal [&_ol]:ps-6 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-secondary [&_pre]:p-3 [&_code]:text-[14px]`
           : "space-y-4 break-words text-base leading-relaxed [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mt-6 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-base [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:ps-6 [&_ol]:list-decimal [&_ol]:ps-6 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-secondary [&_pre]:p-3 [&_code]:text-xs"
       }
     >
@@ -318,14 +319,6 @@ export function FindingContent({
           <Label className="sr-only" htmlFor={`answer-editor-${finding.id}`}>
             {editorLabel}
           </Label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setPreview(!preview)}
-          >
-            {preview ? "Hide preview" : "Preview formatting"}
-          </Button>
           {preview && (
             <section
               className="rounded-xl border bg-secondary/30 p-4"
@@ -340,20 +333,31 @@ export function FindingContent({
               </NotebookMarkdown>
             </section>
           )}
-          <Textarea
-            ref={inputRef}
-            id={`answer-editor-${finding.id}`}
-            autoFocus
-            className="min-h-80 font-mono text-base"
-            value={draft}
-            onChange={(event) => updateDraft(event.target.value)}
-          />
           <EditorExtras
             finding={finding}
             bookId={bookId}
             inputRef={inputRef}
             draft={draft}
             onDraft={updateDraft}
+            toolbarEnd={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="ml-3"
+                onClick={() => setPreview(!preview)}
+              >
+                {preview ? "Hide preview" : "Preview formatting"}
+              </Button>
+            }
+          />
+          <Textarea
+            ref={inputRef}
+            id={`answer-editor-${finding.id}`}
+            autoFocus
+            className="h-64 min-h-48 max-h-96 resize-y overflow-y-auto [field-sizing:fixed] font-mono text-[14px]"
+            value={draft}
+            onChange={(event) => updateDraft(event.target.value)}
           />
           {error && (
             <p role="alert" className="text-xs text-destructive">

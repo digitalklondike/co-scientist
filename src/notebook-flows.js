@@ -81,7 +81,6 @@ export function changeNotebook(books, bookId, action) {
     if (book.findings.some((f) => f.id === record.id))
       throw Error("Research already saved in this notebook.");
     next.findings = [
-      ...book.findings,
       {
         ...structuredClone(record),
         note: "",
@@ -90,6 +89,7 @@ export function changeNotebook(books, bookId, action) {
         originResearchId: record.id,
         originQuestion: record.question,
       },
+      ...book.findings,
     ];
   } else if (action.type.startsWith("task-")) {
     next.nextSteps = [...(book.nextSteps || [])];

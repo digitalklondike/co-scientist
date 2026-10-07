@@ -122,9 +122,9 @@ export function NotebookDragHandle({ label, ...props }) {
   return (
     <Button
       static
-      variant="secondary"
+      variant="ghost"
       size="icon-sm"
-      className="touch-none cursor-grab active:cursor-grabbing"
+      className="touch-none cursor-grab bg-transparent text-foreground/50 hover:bg-secondary hover:text-foreground focus-visible:text-foreground active:cursor-grabbing"
       aria-label={`Reorder ${label}`}
       tooltip="Drag to reorder. Keyboard: Alt + ↑ / ↓."
       {...props}

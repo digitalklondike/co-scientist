@@ -1,3 +1,4 @@
+import { NotebookBreadcrumb } from "./notebook-breadcrumb";
 import { useEffect } from "react";
 import { NotebookNavigator, ContextStepDialog } from "./notebook-knowledge";
 import { blockHash } from "../notebook-knowledge";
@@ -105,14 +106,7 @@ export function NotebookWorkspace({
       className="min-h-0 min-w-0 flex-1 xl:overflow-y-auto xl:overscroll-contain xl:px-8 xl:py-8"
     >
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 pb-6">
-        <Button
-          variant="ghost"
-          className="-ml-4 w-fit shrink-0 !px-4"
-          onClick={onBack}
-        >
-          <ArrowLeft />
-          All notebooks
-        </Button>
+        <NotebookBreadcrumb onHome={onBack} title={book.title} />
         {!!book.findings.length && (
           <NotebookNavigator
             key={`navigation-${book.id}`}

@@ -228,3 +228,22 @@ Notebook history dialog — 7 October 2026: Keep Previous versions header and bo
 - Block editor keeps an accessible hidden label but removes the visible Markdown heading/helper. Insert citation is the rightmost tool below the textarea.
 - Comments keep identical header padding/geometry in both states. Focus the composer with preventScroll; opening comments must not jump the viewport.
 - Answer text selections expose Save selection to Notebook and the existing destination picker. Save exactly the selected text as an independent block with original research ID/question and retained sources; preserve the whole research record. Escape/scroll dismisses the contextual action. This explicitly extends Chat only for excerpt saving.
+
+
+Notebook UI refinement — 8 October 2026: User requests icon breadcrumbs with double chevrons above search for library folders and open notebooks. Library open buttons keep transparent press feedback; notebook icons become primary with light artwork on row hover/focus. All notebook drag handles use transparent defaults and 50% foreground, retaining the existing tonal hover. Toolbar search and actions are 40px with consistent 8px gaps. Overview controls are 48px tall with muted counts/status inline to the right; summary uses 14px body and 16px headings. Remove the next-steps device/notification hint. Place citation beside formatting controls above a bounded 256px scrollable/resizable editor; explain source insertion in its tooltip. Add source leads the source list as a dashed button. Comment header fills available width for toggling, has no border, and cannot expand an empty list; Add comment is borderless. Comments/replies form a compact flat list without individual white cards, retaining all existing actions and stored data. These changes are local; no push requested.
+
+Notebook comment follow-up: Comment and reply action buttons use 50% opacity by default and full opacity on hover or keyboard focus. Replies have 16px separation above and 56px mobile/64px desktop indentation from the article edge, placing them further right than the main comment body.
+
+Notebook comment examples: Main comment body starts 4px below the author row. User explicitly requested other participant examples in block 530b19c4-ae39-4f6d-8ca6-0d8e2097d94e; seed two fictional Demo authors plus a reply once, preserve existing comments, and never reseed after deletion. Other blocks and read-only notebooks remain untouched.
+
+Notebook participant actions: Other authors’ comments show only Reply and Create next step, without disabled Edit/Delete or Resolve/Reopen controls. Own-comment actions remain intact. Other participants get stable mint/lavender/peach avatar colors; You retains blue.
+
+Notebook comment composer: The white composer form has no outer border. Add comment uses a white fill without outline in the header and repeats at the end of the expanded nonempty list, so long discussions can be answered without scrolling to the top. Both controls open the same composer.
+
+Notebook Add comment placement correction: Show exactly one Add comment control per discussion. Expanded nonempty lists put it at the bottom; collapsed or empty lists keep it in the header. Hide the control while its composer is open. This supersedes repeating it in both places.
+
+Notebook empty comments: Remove “Capture an observation, question or next step for this block.” Empty sections without an open composer contain only the compact header and Add comment button, with no empty list spacing.
+
+Notebook comment footer and newest-first research: Align Collapse comments and Add comment in one footer row. Collapse hides the entire discussion list; Show all remains available when a preview is truncated. Newly saved research from the picker, Chat save, and Notebook conversation inserts before existing blocks while preserving their order and data. Explicit Insert block below keeps its chosen position.
+
+Notebook participant action correction: Resolve/Reopen is available for other authors’ discussions too, alongside Reply and Create next step. Only Edit/Delete remain restricted to the author.

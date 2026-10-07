@@ -242,7 +242,7 @@ export function NotebookOverview({ book, role, onChange }) {
       aria-label="Notebook overview"
     >
       <div
-        className="grid gap-1 p-1 sm:grid-cols-3"
+        className="grid gap-1 p-1.5 sm:grid-cols-3"
         role="group"
         aria-label="Notebook overview sections"
       >
@@ -265,18 +265,16 @@ export function NotebookOverview({ book, role, onChange }) {
             key={key}
             static
             variant={active === key ? "tonal" : "ghost"}
-            className="h-auto min-h-10 max-sm:min-h-11 w-full justify-start gap-2 rounded-lg px-3 py-1 text-left has-[>svg]:px-3"
+            className="h-auto min-h-12 w-full justify-start gap-2 rounded-lg px-3 py-1 text-left has-[>svg]:px-3"
             aria-label={title}
             aria-expanded={active === key}
             aria-controls={`${overviewId}-${key}`}
             onClick={() => setActive(active === key ? null : key)}
           >
             <Icon className="size-4 shrink-0 text-primary" />
-            <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-medium leading-4">
-                {title}
-              </span>
-              <span className="block text-xs font-normal leading-4 text-muted-foreground tabular-nums">
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-[14px] font-medium leading-4">{title}</span>
+              <span className="text-xs font-normal leading-4 text-muted-foreground tabular-nums">
                 {info}
               </span>
             </span>
@@ -534,9 +532,6 @@ export function NotebookOverview({ book, role, onChange }) {
               </Button>
             </form>
           )}
-          <NotebookHint>
-            Saved on this device. No assignments or notifications.
-          </NotebookHint>
         </div>
       </div>
       {error && (
@@ -588,18 +583,19 @@ export function SourceEditor({ bookId, finding, role, onChange }) {
           <h3 className="text-base font-semibold">
             Sources kept with this block
           </h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
           {role === "editor" && (
             <Button
               variant="outline"
               size="sm"
+              className="border-dashed bg-transparent"
               onClick={() => guard(() => setOpen(true))}
             >
               <Plus />
               Add source
             </Button>
           )}
-        </div>
-        <div className="flex flex-wrap gap-2">
           {finding.result.sources.map((s) => (
             <div key={s.url} className="flex items-center gap-1">
               <Button asChild variant="secondary" size="sm">
@@ -684,6 +680,7 @@ export function EditorExtras({
   finding,
   bookId,
   historyOnly,
+  toolbarEnd,
   inputRef,
   draft,
   onDraft,
@@ -722,7 +719,7 @@ export function EditorExtras({
     <>
       {inputRef && (
         <div
-          className="flex flex-wrap gap-1"
+          className="flex flex-wrap items-center gap-1"
           role="toolbar"
           aria-label="Block formatting"
         >
@@ -744,14 +741,13 @@ export function EditorExtras({
               <Icon />
             </Button>
           ))}
-          <span className="ml-auto">
-            <CitationInsert
-              finding={finding}
-              inputRef={inputRef}
-              draft={draft}
-              onDraft={onDraft}
-            />
-          </span>
+          <CitationInsert
+            finding={finding}
+            inputRef={inputRef}
+            draft={draft}
+            onDraft={onDraft}
+          />
+          {toolbarEnd}
         </div>
       )}
       {!historyOnly && onRestore && !!finding.versions?.length && (

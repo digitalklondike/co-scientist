@@ -191,10 +191,11 @@ export function NotebookTools({
     <>
       <div
         aria-label="Notebook tools"
-        className="flex flex-wrap items-center gap-4"
+        className="flex flex-wrap items-center gap-2"
       >
         <div className="relative min-w-48 flex-1 basis-full lg:basis-64">
           <SearchInput
+            inputClassName="h-10"
             aria-label="Search in this notebook"
             placeholder="Search blocks and comments"
             value={search}
@@ -222,11 +223,16 @@ export function NotebookTools({
             </Button>
           )}
         </div>
-        <NotebookActionGroup aria-label="Share and export">
+        <div
+          role="group"
+          aria-label="Share and export"
+          className="flex items-center gap-2"
+        >
           <Button
             static
             variant="ghost"
             size="icon"
+            className="size-10"
             aria-label="Share notebook"
             onClick={() => open("share")}
           >
@@ -236,12 +242,13 @@ export function NotebookTools({
             static
             variant="ghost"
             size="icon"
+            className="size-10"
             aria-label="Export notebook"
             onClick={() => open("export")}
           >
             <Download />
           </Button>
-        </NotebookActionGroup>
+        </div>
       </div>
       {search && (
         <section

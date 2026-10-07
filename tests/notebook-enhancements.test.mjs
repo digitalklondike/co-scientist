@@ -49,7 +49,9 @@ test("research picker rejects duplicates and saves a separate timestamped copy",
     record,
     now: "2026-10-07T10:00:00Z",
   });
-  assert.equal(b[0].findings[1].savedAt, "2026-10-07T10:00:00Z");
+  assert.equal(b[0].findings[0].savedAt, "2026-10-07T10:00:00Z");
+  assert.equal(b[0].findings[0].id, record.id);
+  assert.deepEqual(b[0].findings.slice(1), seed[0].findings);
   assert.equal(record.savedAt, undefined);
   assert.throws(
     () => changeNotebook(b, "b", { type: "research-add", record }),
