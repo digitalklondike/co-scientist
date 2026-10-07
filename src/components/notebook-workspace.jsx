@@ -1,3 +1,16 @@
+import { useEffect } from "react";
+import {
+  NotebookNavigator,
+  RelatedNotebooks,
+  ContextStepDialog,
+} from "./notebook-knowledge";
+import { blockHash } from "../notebook-knowledge";
+import {
+  ResearchPicker,
+  NotebookOverview,
+  SourceEditor,
+  savedDate,
+} from "./notebook-enhancements";
 import { useState } from "react";
 import {
   BookOpen,
@@ -11,14 +24,16 @@ import {
   ArrowRight,
   NotebookPen,
   Trash2,
-
+  ArrowUp,
+  ArrowDown,
+  ChevronDown,
+  Link2,
+  ListChecks,
+  History,
 } from "lucide-react";
 
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { NotebookButton as Button, NotebookCount } from "./notebook-ui";
+import { NotebookInput as Input } from "./notebook-ui";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -27,76 +42,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { FindingContent } from "./notebook-content";
-
-export function NotebookLibrary({ books, onOpen, onNew }) {
-  const [search, setSearch] = useState("");
-  const results = books.filter((book) =>
-    book.title.toLowerCase().includes(search.toLowerCase()),
-  );
-  return (
-    <div className="mx-auto flex w-full max-w-5xl min-h-0 flex-col gap-7 xl:h-full xl:px-8 xl:py-8">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Your notebooks
-        </h1>
-        <p className="text-base leading-relaxed text-muted-foreground">
-          Collect answers, sources and your own notes in one place.
-        </p>
-      </header>
-      <div className="flex shrink-0 items-center gap-3">
-        <Input
-          aria-label="Search notebooks"
-          placeholder="Search notebooks"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="h-11 min-w-0 flex-1"
-        />
-        <Button className="h-11" onClick={onNew}>
-          <Plus />
-          New notebook
-        </Button>
-      </div>
-      <div
-        aria-label="Notebook list"
-        className="min-h-0 space-y-3 xl:overflow-y-auto xl:overscroll-contain"
-      >
-        {results.map((book) => (
-          <Button
-            key={book.id}
-            variant="ghost"
-            aria-label={`Open notebook ${book.title}`}
-            onClick={() => onOpen(book.id)}
-            className="h-auto w-full justify-start gap-4 whitespace-normal !rounded-2xl bg-secondary !p-6 text-left transition-colors hover:bg-accent "
-          >
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><NotebookPen className="!size-5" /></span>
-            <span className="min-w-0 flex-1 space-y-2">
-              <span className="block text-base font-semibold">
-                {book.title}
-              </span>
-
-              <span className="block truncate text-xs font-normal text-muted-foreground">
-                {book.findings.at(-1)?.question ||
-                  "Ready for your first answer"}
-              </span>
-            </span>
-            <span aria-label={`${book.findings.length} saved answers`} className="shrink-0 rounded-md bg-white px-2.5 py-1 text-xs font-normal text-muted-foreground">{book.findings.length} saved {book.findings.length === 1 ? "answer" : "answers"}</span><ArrowRight className="shrink-0 text-primary" />
-          </Button>
-        ))}
-        {!results.length && (
-          <div className="space-y-2 py-12 text-center">
-            <h2 className="text-base font-semibold">No matching notebooks</h2>
-            <p className="text-base text-muted-foreground">
-              Try another name or create a notebook.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+import { NotebookNote } from "./notebook-notes";
+import { NotebookTools } from "./notebook-tools";
+import { useNoteNavigation } from "./note-navigation-context";
+export { NotebookLibrary } from "./notebook-library";
 
 export function NotebookWorkspace({
   book,
+  books = [],
+  onBook,
+  records,
   finding,
   onFinding,
   onNew,
@@ -107,138 +62,459 @@ export function NotebookWorkspace({
   onEdit,
   onRemove,
   onNote,
+  onNotify,
   onConversation,
   onSaveReply,
   onBack,
   onDiscuss,
   discussionOpen,
+  onChange,
+  onCloseDiscussion,
 }) {
+  const guard = useNoteNavigation();
+  const [previewRole, setPreviewRole] = useState(null);
+  const [collapsed, setCollapsed] = useState({});
+  const [stepContext, setStepContext] = useState(null);
+  useEffect(() => {
+    const reveal = (e) => {
+      if (e.detail.bookId === book.id)
+        setCollapsed((p) => ({ ...p, [e.detail.findingId]: false }));
+    };
+    const step = (e) => {
+      if (e.detail.bookId === book.id) setStepContext(e.detail);
+    };
+    window.addEventListener("notebook-open-block", reveal);
+    window.addEventListener("notebook-open-comments", reveal);
+    window.addEventListener("notebook-create-step", step);
+    return () => {
+      window.removeEventListener("notebook-open-block", reveal);
+      window.removeEventListener("notebook-open-comments", reveal);
+      window.removeEventListener("notebook-create-step", step);
+    };
+  }, [book.id]);
+
+  const [addAfter, setAddAfter] = useState(null);
+  const [researchPicker, setResearchPicker] = useState(false);
+  const role = previewRole || book.accessRole || "editor";
+  const run = (action) => {
+    try {
+      onChange(book.id, action);
+    } catch (e) {
+      onNotify(e.message, undefined, "error");
+    }
+  };
   return (
-    <div className="min-h-0 min-w-0 flex-1 xl:overflow-y-auto xl:overscroll-contain xl:px-8 xl:py-8"><div className="mx-auto flex w-full max-w-4xl flex-col gap-6 pb-6">
-      <Button variant="ghost" className="-ml-4 w-fit shrink-0 !px-4" onClick={onBack}>
-        <ArrowLeft />
-        All notebooks
-      </Button>
-      <section aria-label="Notebook header" className="-mx-4 space-y-5 rounded-2xl bg-secondary/70 p-4 sm:-mx-6 sm:p-6">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <h1 className="break-words text-[32px] font-semibold leading-[40px] tracking-tight">{book.title}</h1>
-          <span className="shrink-0 rounded-md bg-white px-2.5 py-1 text-xs text-muted-foreground">{book.findings.length} saved {book.findings.length === 1 ? "answer" : "answers"}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={onResearch}>
-            <Plus />
-            Add research
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Notebook actions">
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onRename}>
-                <Pencil />
-                Rename notebook
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onExport}>
-                <Download />
-                Export notebook
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onNew}>
+    <div
+      data-notebook-scroll
+      className="min-h-0 min-w-0 flex-1 xl:overflow-y-auto xl:overscroll-contain xl:px-8 xl:py-8"
+    >
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 pb-6">
+        <Button
+          variant="ghost"
+          className="-ml-4 w-fit shrink-0 !px-4"
+          onClick={onBack}
+        >
+          <ArrowLeft />
+          All notebooks
+        </Button>
+        {!!book.findings.length && (
+          <NotebookNavigator
+            key={`navigation-${book.id}`}
+            book={book}
+            collapsed={collapsed}
+            onReveal={(id) => setCollapsed((p) => ({ ...p, [id]: false }))}
+          />
+        )}
+        <section
+          aria-label="Notebook header"
+          className="-mx-4 space-y-4 rounded-2xl bg-secondary/70 p-4 sm:-mx-6 sm:p-6"
+        >
+          <header className="flex shrink-0 flex-wrap items-center justify-between gap-4">
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <h1 className="break-words text-[32px] font-semibold leading-[40px] tracking-tight">
+                {book.title}
+              </h1>
+              <NotebookCount>
+                {book.findings.length} saved{" "}
+                {book.findings.length === 1 ? "block" : "blocks"}
+              </NotebookCount>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="tonal"
+                onClick={() => guard(() => setResearchPicker(true))}
+                disabled={role !== "editor"}
+              >
                 <Plus />
-                New notebook
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-      <p className="text-base leading-relaxed text-muted-foreground">Answers you save, with their sources and your notes.</p>
-      </section>
-      {!book.findings.length ? (
-        <div className="flex min-h-[50svh] flex-col items-center justify-center gap-4 text-center">
-          <FileText className="size-8 text-primary" />
-          <h2 className="text-2xl font-semibold">
-            Ready for your first answer
-          </h2>
-          <p className="max-w-md text-base leading-relaxed text-muted-foreground">
-            Save an answer from Chat to start this collection.
+                Add research
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Notebook actions"
+                  >
+                    <MoreHorizontal />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    disabled={role !== "editor"}
+                    onClick={onRename}
+                  >
+                    <Pencil />
+                    Rename notebook
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onExport}>
+                    <Download />
+                    Export notebook
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onNew}>
+                    <Plus />
+                    New notebook
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </header>
+          <p className="text-base leading-relaxed text-muted-foreground">
+            Saved research and your own blocks, with sources and comments.
           </p>
-          <Button onClick={onResearch}>Start research</Button>
-        </div>
-      ) : (
-        <div className="space-y-10 pb-6">
-          {book.findings.map((block, index) => (
-            <article
-              key={`${book.id}-${block.id}`}
-              data-testid="saved-finding"
-              aria-label="Saved answer block"
-              className="min-w-0 space-y-6 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-border [&:not(:first-child)]:pt-10"
+        </section>
+        {previewRole && (
+          <div
+            role="status"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-accent/40 p-4"
+          >
+            <p className="text-xs">
+              Previewing as {previewRole} · actions reflect this role
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => guard(() => setPreviewRole(null))}
             >
-              <div className="relative flex items-center gap-3">
-                <span aria-label={`Saved answer ${index + 1}`} className={`flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-xs font-semibold tabular-nums text-primary ${discussionOpen ? "" : "xl:absolute xl:-left-12"}`}>{String(index + 1).padStart(2, "0")}</span>
-                <p className="text-xs text-muted-foreground">{(block.originResearchId && block.originResearchId !== block.id) || /notebook/i.test(block.result.title || "") ? "Saved from a notebook conversation" : "Saved from research"}</p>
-              </div>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <h2 className="min-w-0 flex-1 text-2xl font-semibold leading-tight tracking-tight">{block.question}</h2>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => onOpen(block)}>Open research<ArrowUpRight /></Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={`Actions for saved answer ${index + 1}`}><MoreHorizontal /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end"><DropdownMenuItem variant="destructive" onClick={() => onRemove(block.id)}><Trash2 className="text-destructive" />Remove from notebook</DropdownMenuItem></DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-              <FindingContent
-                finding={block}
-                documentView
-                onSave={(content) => onEdit(block.id, content)}
-                onDiscuss={() => onDiscuss(block.id)}
-              />
-              {!!block.result.sources.length && (
-                <section className="space-y-3">
-                  <h3 className="text-base font-semibold">
-                    Sources kept with this answer
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {block.result.sources.map((source) => (
-                      <Button
-                        key={source.url}
-                        asChild
-                        variant="secondary"
-                        size="sm"
-                      >
-                        <a href={source.url} target="_blank" rel="noreferrer">
-                          <BookOpen />
-                          {source.author}, {source.year}
-                          <ArrowUpRight />
-                        </a>
-                      </Button>
-                    ))}
+              Exit role preview
+            </Button>
+          </div>
+        )}
+        <NotebookTools
+          key={book.id}
+          book={book}
+          role={role}
+          onChange={onChange}
+          onNotify={onNotify}
+          onPreview={(next) =>
+            guard(() => {
+              onCloseDiscussion?.();
+              setPreviewRole(next);
+            })
+          }
+          addAfter={addAfter}
+          onClearAfter={() => setAddAfter(null)}
+        />
+        <ResearchPicker
+          book={book}
+          records={records}
+          onChange={onChange}
+          onResearch={onResearch}
+          onNotify={onNotify}
+          open={researchPicker}
+          onClose={() => setResearchPicker(false)}
+        />
+        {!!book.findings.length && (
+          <NotebookOverview book={book} role={role} onChange={onChange} />
+        )}
+        {!book.findings.length ? (
+          <div className="flex min-h-[50svh] flex-col items-center justify-center gap-4 text-center">
+            <FileText className="size-8 text-primary" />
+            <h2 className="text-2xl font-semibold">
+              Ready for your first block
+            </h2>
+            <p className="max-w-md text-base leading-relaxed text-muted-foreground">
+              Save an answer from Chat or add your own block to start this
+              collection.
+            </p>
+            <Button
+              disabled={role !== "editor"}
+              onClick={() => guard(() => setResearchPicker(true))}
+            >
+              Start research
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3 pb-6">
+            {book.findings.map((block, index) => (
+              <article
+                key={`${book.id}-${block.id}`}
+                data-testid="saved-finding"
+                id={`block-${block.id}`}
+                tabIndex={-1}
+                aria-label="Saved answer block"
+                className="scroll-mt-28 min-w-0 space-y-6 rounded-2xl border border-border bg-white p-4 sm:p-6 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <div className="space-y-2">
+                  <div className="relative flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <span
+                      aria-label={`Saved answer ${index + 1}`}
+                      className={`flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-xs font-semibold tabular-nums text-primary `}
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <p className="text-xs text-muted-foreground">
+                      {block.origin === "personal"
+                        ? "Written by you"
+                        : (block.originResearchId &&
+                              block.originResearchId !== block.id) ||
+                            /notebook/i.test(block.result.title || "")
+                          ? "Saved from a notebook conversation"
+                          : "Saved from research"}
+                    </p>
+                    <p className="text-xs text-muted-foreground sm:ml-auto sm:text-right">
+                      Saved · {savedDate(block.savedAt)}
+                      {block.editedAt
+                        ? ` · Your edits · ${savedDate(block.editedAt)}`
+                        : ""}
+                      {book.conclusionFindingId === block.id
+                        ? " · Summary starting block"
+                        : ""}
+                    </p>
                   </div>
-                </section>
-              )}
-              <section className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label htmlFor={`note-${block.id}`}>Your notes</Label>
-                  <span className="text-xs text-muted-foreground">
-                    Saved automatically
-                  </span>
+                  {block.originQuestion &&
+                    block.originQuestion !== block.question && (
+                      <p className="text-xs text-muted-foreground">
+                        Original research: {block.originQuestion}
+                      </p>
+                    )}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <h2 className="min-w-0 flex-1 basis-full text-2xl font-semibold leading-tight tracking-tight [text-wrap:balance] sm:basis-0">
+                      {block.question}
+                    </h2>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="secondary"
+                        size="icon-sm"
+                        aria-label={`${collapsed[block.id] ? "Expand" : "Collapse"} research ${index + 1}`}
+                        aria-expanded={!collapsed[block.id]}
+                        onClick={() =>
+                          guard(() =>
+                            setCollapsed((p) => ({
+                              ...p,
+                              [block.id]: !p[block.id],
+                            })),
+                          )
+                        }
+                      >
+                        <ChevronDown
+                          className={collapsed[block.id] ? "-rotate-90" : ""}
+                        />
+                      </Button>
+                      {block.origin !== "personal" && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          tooltip="Open original research. This notebook copy stays saved."
+                          onClick={() => onOpen(block)}
+                        >
+                          Open research
+                          <ArrowUpRight />
+                        </Button>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="secondary"
+                            size="icon-sm"
+                            aria-label={`Actions for saved answer ${index + 1}`}
+                          >
+                            <MoreHorizontal />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              const url = new URL(location.href);
+                              url.hash = blockHash(book.id, block.id);
+                              navigator.clipboard.writeText(url.href).then(
+                                () =>
+                                  onNotify(
+                                    "Local link copied. Opens this block on this device.",
+                                  ),
+                                () =>
+                                  onNotify(
+                                    "Couldn’t copy link.",
+                                    undefined,
+                                    "error",
+                                  ),
+                              );
+                            }}
+                          >
+                            <Link2 />
+                            Copy link to block
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={role !== "editor"}
+                            onClick={() =>
+                              guard(() =>
+                                setStepContext({
+                                  findingId: block.id,
+                                  text: "",
+                                }),
+                              )
+                            }
+                          >
+                            <ListChecks />
+                            Create next step
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={!block.versions?.length}
+                            onClick={() =>
+                              guard(() => {
+                                setCollapsed((p) => ({
+                                  ...p,
+                                  [block.id]: false,
+                                }));
+                                requestAnimationFrame(() =>
+                                  window.dispatchEvent(
+                                    new CustomEvent("notebook-open-history", {
+                                      detail: {
+                                        bookId: book.id,
+                                        findingId: block.id,
+                                      },
+                                    }),
+                                  ),
+                                );
+                              })
+                            }
+                          >
+                            <History />
+                            Version history
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={role !== "editor" || index === 0}
+                            onClick={() =>
+                              guard(() =>
+                                run({
+                                  type: "block-move",
+                                  findingId: block.id,
+                                  direction: -1,
+                                }),
+                              )
+                            }
+                          >
+                            <ArrowUp />
+                            Move up
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={
+                              role !== "editor" ||
+                              index === book.findings.length - 1
+                            }
+                            onClick={() =>
+                              guard(() =>
+                                onChange(book.id, {
+                                  type: "block-move",
+                                  findingId: block.id,
+                                  direction: 1,
+                                }),
+                              )
+                            }
+                          >
+                            <ArrowDown />
+                            Move down
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={role !== "editor"}
+                            onClick={() => guard(() => setAddAfter(block.id))}
+                          >
+                            <Plus />
+                            Insert block below
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={role !== "editor" || !!book.summary}
+                            onClick={() =>
+                              run({ type: "conclusion", findingId: block.id })
+                            }
+                          >
+                            Use as summary starting text
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            disabled={role !== "editor"}
+                            onClick={() => onRemove(block.id)}
+                          >
+                            <Trash2 className="text-destructive" />
+                            Remove from notebook
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
                 </div>
-                <Textarea
-                  id={`note-${block.id}`}
-                  aria-label={`Notes for ${block.question}`}
-                  value={block.note || ""}
-                  onChange={(event) => onNote(block.id, event.target.value)}
-                  placeholder="Add an observation or next step…"
-                  className="min-h-28"
-                />
-              </section>
-            </article>
-          ))}
-        </div>
-      )}
-    </div>
+                {collapsed[block.id] ? (
+                  <p className="line-clamp-2 text-base text-muted-foreground">
+                    {block.result.summary
+                      .split(/^## /m)[0]
+                      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")}
+                  </p>
+                ) : (
+                  <>
+                    <FindingContent
+                      finding={block}
+                      bookId={book.id}
+                      readOnly={role !== "editor"}
+                      documentView
+                      onSave={(content) => onEdit(block.id, content)}
+                      onRestore={(versionId) =>
+                        onChange(book.id, {
+                          type: "block-restore",
+                          findingId: block.id,
+                          versionId,
+                        })
+                      }
+                      onDiscuss={
+                        role === "editor"
+                          ? () => onDiscuss(block.id)
+                          : undefined
+                      }
+                    />
+                    <SourceEditor
+                      bookId={book.id}
+                      finding={block}
+                      role={role}
+                      keySourceUrls={book.keySourceUrls || []}
+                      onChange={onChange}
+                    />
+                    <NotebookNote
+                      key={`${book.id}:${block.id}`}
+                      bookId={book.id}
+                      finding={block}
+                      onSave={onChange}
+                      onNotify={onNotify}
+                      role={role}
+                    />
+                  </>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+        <RelatedNotebooks
+          book={book}
+          books={books}
+          role={role}
+          onChange={onChange}
+          onOpen={onBook}
+        />
+      </div>
+      <ContextStepDialog
+        book={book}
+        context={stepContext}
+        onClose={() => setStepContext(null)}
+        onChange={onChange}
+        onNotify={onNotify}
+      />
     </div>
   );
 }

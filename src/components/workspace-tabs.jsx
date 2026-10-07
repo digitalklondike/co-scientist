@@ -6,7 +6,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export function WorkspaceTabs({
   value,
   onValueChange,
-  notebookCount,
   ...props
 }) {
   const listRef = useRef(null);
@@ -80,11 +79,6 @@ export function WorkspaceTabs({
         >
           <NotebookPen />
           Notebook
-          {notebookCount > 0 && (
-            <span className="hidden tabular-nums min-[360px]:inline">
-              {notebookCount}
-            </span>
-          )}
         </TabsTrigger>
       </TabsList>
     </Tabs>

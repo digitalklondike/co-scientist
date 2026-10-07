@@ -1,3 +1,5 @@
+import { NotebookTemplateSelect } from "./components/notebook-knowledge";
+import { templateFindings, parseBlockHash } from "./notebook-knowledge";
 import { cn } from "@/lib/utils";
 import React, { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -77,6 +79,9 @@ import {
 import { WorkspaceTabs } from "@/components/workspace-tabs";
 import { NotebookMarkdown, NotebookConversation } from "@/components/notebook-content";
 import { NotebookWorkspace, NotebookLibrary } from "@/components/notebook-workspace";
+import { NotebookNote, NotebookNotesProvider } from "@/components/notebook-notes";
+import { useNoteNavigation } from "@/components/note-navigation-context";
+import { changeNotebook, persistNotebooks, exportNotebook, downloadNotebook, commentsFor } from "./notebook-flows.js";
 import { updateFinding, removeNotebookFinding, restoreNotebookFinding } from "./notebook.js";
 import { Toaster, NotificationToast } from "@/components/ui/sonner";
 import { Spinner } from "@/components/ui/spinner";
@@ -126,6 +131,7 @@ function useSaved(key, initial) {
     }
   });
   useEffect(() => {
+    if (key === "books-v2") return; // Notebook writes are transactional, never replay an older render.
     try {
       localStorage.setItem("cosci-" + key, JSON.stringify(value));
     } catch {}
@@ -439,6 +445,11 @@ function OnboardingHint({
 }
 
 export function App() {
+  return <NotebookNotesProvider><ResearchWorkspace /></NotebookNotesProvider>;
+}
+
+function ResearchWorkspace() {
+  const requestNoteNavigation = useNoteNavigation();
   const [desktopNotebook, setDesktopNotebook] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
   useEffect(() => {
     const query = window.matchMedia("(min-width: 1024px)");
@@ -450,11 +461,22 @@ export function App() {
     [records, setRecords] = useSaved("records", []),
     [books, setBooks] = useSaved("books-v2", []),
     [guide, setGuide] = useState(true);
+  const booksRef = useRef(books);
+  booksRef.current = books;
+  useEffect(() => {
+    const sync = event => {
+      if (event.key !== "cosci-books-v2" || !event.newValue) return;
+      try { const next = JSON.parse(localStorage.getItem("cosci-books-v2")); if (!Array.isArray(next)) return; booksRef.current = next; setBooks(next); } catch {}
+    };
+    window.addEventListener("storage",sync);
+    return () => window.removeEventListener("storage",sync);
+  }, []);
   const [guidedId, setGuidedId] = useState(null),
     [reviewedId, setReviewedId] = useState(null),
     [noteHint, setNoteHint] = useState(false),
     [showAllHistory, setShowAllHistory] = useState(false);
   const [chatFindingId, setChatFindingId] = useState(null);
+  const [newBookFolderId, setNewBookFolderId] = useState(null);
   const [notebookDetail, setNotebookDetail] = useState(false);
   const [discussionOpen, setDiscussionOpen] = useState(false);
   const [question, setQuestion] = useState(""),
@@ -505,9 +527,11 @@ export function App() {
   const reducedMotion = useReducedMotion();
   useEffect(() => {
     const resetKey = "cosci-notebook-empty-demo-v2";
-    if (localStorage.getItem(resetKey)) return;
-    setBooks([]);
-    localStorage.setItem(resetKey, "1");
+    try {
+      if (localStorage.getItem(resetKey)) return;
+      localStorage.setItem(resetKey, "1");
+      // An empty demo starts empty; never erase a previously saved collection.
+    } catch { /* Keep loaded notebooks when device storage is unavailable. */ }
   }, []);
   useEffect(() => {
     workspaceScroll.current?.scrollTo({ top: 0, behavior: "instant" });
@@ -529,7 +553,7 @@ export function App() {
       id: "research-notification",
       duration: action ? Infinity : 5500,
     });
-  const nav = (v) => {
+  const applyNav = (v) => {
     if (v === "notebook") setNotebookDetail(false);
     viewRef.current = v;
     setView(v);
@@ -538,14 +562,15 @@ export function App() {
     setOpened({});
     workspaceScroll.current?.scrollTo({ top: 0, behavior: "instant" });
   };
-  const fresh = () => {
-    nav("home");
+  const nav = (v) => requestNoteNavigation(() => applyNav(v));
+  const fresh = () => requestNoteNavigation(() => {
+    applyNav("home");
     setActive(null);
     if (guide) setGuidedId(null);
     setQuestion("");
     setFile(null);
     setTimeout(() => input.current?.focus(), 50);
-  };
+  });
   useEffect(() => {
     if (!task) return;
     setStage(0);
@@ -665,11 +690,13 @@ export function App() {
   }
   function openRecord(r) {
     if (!r) return;
+    requestNoteNavigation(() => {
     if (guide && !guidedId && !r.result.needsFile) setGuidedId(r.id);
     if (r.id === readyId) sonnerToast.dismiss("research-notification");
     setReadyId(null);
     setActive(r.id);
-    nav("answer");
+    applyNav("answer");
+    });
   }
   function showSaveDialog() {
     setName(
@@ -700,7 +727,7 @@ export function App() {
       return;
     }
     const finding = { ...current, note: "" };
-    setBooks((p) =>
+    try { commitBooks((p) =>
       destination === "new"
         ? [
             {
@@ -713,7 +740,7 @@ export function App() {
         : p.map((b) =>
             b.id === id ? { ...b, findings: [...b.findings, finding] } : b,
           ),
-    );
+    ); } catch { notify("Couldn’t save to notebook. Check device storage and retry.", undefined, "error"); return; }
     setBookId(id);
     setNoteHint(guide);
     setModal("saved");
@@ -722,59 +749,66 @@ export function App() {
     e.preventDefault();
     persistFinding(target, name);
   }
+  useEffect(()=>{const openLink=()=>{const target=parseBlockHash(location.hash);if(!target)return;const destination=booksRef.current.find(b=>b.id===target.bookId);if(!destination?.findings.some(f=>f.id===target.findingId)){notify("Linked research is unavailable on this device.",undefined,"error");return;}requestNoteNavigation(()=>{setBookId(destination.id);setChatFindingId(null);setNotebookDetail(true);setView("notebook");requestAnimationFrame(()=>requestAnimationFrame(()=>{window.dispatchEvent(new CustomEvent("notebook-open-block",{detail:{bookId:destination.id,findingId:target.findingId}}));requestAnimationFrame(()=>{window.dispatchEvent(new CustomEvent("notebook-open-block",{detail:{bookId:destination.id,findingId:target.findingId}}));const el=document.getElementById(target.sectionId||`block-${target.findingId}`)||document.getElementById(`block-${target.findingId}`);el?.scrollIntoView({block:"start",behavior:"instant"});el?.focus({preventScroll:true});});}));});};openLink();window.addEventListener("hashchange",openLink);return()=>window.removeEventListener("hashchange",openLink);},[]);
   function newBook(e) {
     e.preventDefault();
     if (!name.trim()) return;
     const id = crypto.randomUUID();
-    setBooks((p) => [{ id, title: name.trim(), findings: [] }, ...p]);
+    const template = new FormData(e.currentTarget).get("notebookTemplate") || "blank";
+    try { commitBooks((p) => [{ id, title: name.trim(), findings: templateFindings(template), folderId:newBookFolderId }, ...p]); } catch { notify("Couldn’t create notebook. Check device storage and retry.",undefined,"error"); return; }
     setBookId(id);
+    setNewBookFolderId(null);
     setModal(null);
     nav("notebook");
     setNotebookDetail(true);
   }
-  function editNote(id, note) {
-    if (id === guidedId && note.trim()) finishGuidance();
-    setBooks((p) =>
-      p.map((b) =>
-        b.id === book.id
-          ? {
-              ...b,
-              findings: b.findings.map((f) =>
-                f.id === id ? { ...f, note } : f,
-              ),
-            }
-          : b,
-      ),
-    );
+  function commitBooks(transform) {
+    let latest = booksRef.current;
+    const stored = localStorage.getItem("cosci-books-v2");
+    if (stored) { const parsed = JSON.parse(stored); if (Array.isArray(parsed)) latest = parsed; }
+    const next = persistNotebooks(localStorage, transform(latest));
+    booksRef.current = next;
+    setBooks(next);
+    return next;
+  }
+  function changeBook(destinationId, action) {
+    const before = booksRef.current.find(b => b.id === destinationId)?.findings.find(f => f.id === action.findingId);
+    const deletedIndex = before ? commentsFor(before).findIndex(c => c.id === action.commentId) : -1;
+    const removedComment = deletedIndex < 0 ? null : commentsFor(before)[deletedIndex];
+    const next = commitBooks(previous => changeNotebook(previous, destinationId, action));
+    const replyIndex = removedComment?.replies?.findIndex(r => r.id === action.replyId) ?? -1;
+    return { next, removedComment, deletedIndex, removedReply:removedComment?.replies?.[replyIndex], replyIndex };
   }
   function editFinding(id, contentMarkdown) {
-    setBooks((previous) => updateFinding(previous, book.id, id, { contentMarkdown }));
+    changeBook(book.id, { type:"block-edit", findingId:id, text:contentMarkdown });
     notify("Notebook answer updated. Original research kept.");
   }
   function removeFinding(id) {
-    const index = book.findings.findIndex((item) => item.id === id);
+    const latestBook = booksRef.current.find(b => b.id === book.id);
+    const index = latestBook.findings.findIndex((item) => item.id === id);
     if (index < 0) return;
-    const removed = book.findings[index];
+    const removed = latestBook.findings[index];
     const destinationId = book.id;
-    setBooks((previous) => removeNotebookFinding(previous, destinationId, id));
+    try { commitBooks((previous) => removeNotebookFinding(previous, destinationId, id)); } catch { notify("Couldn’t remove this block. Your saved content is still here.", undefined, "error"); return; }
     if (chatFinding?.id === id) {
       setDiscussionOpen(false);
       setChatFindingId(null);
     }
     notify("Answer removed from notebook.", {
       label: "Undo",
-      run: () => setBooks((previous) => restoreNotebookFinding(previous, destinationId, removed, index)),
+      run: () => { try { commitBooks((previous) => restoreNotebookFinding(previous, destinationId, removed, index)); } catch { notify("Couldn’t restore this block.", undefined, "error"); } },
     });
   }
   function renameBook(event) {
     event.preventDefault();
     if (!name.trim()) return;
-    setBooks((previous) => previous.map((item) => item.id === book.id ? { ...item, title: name.trim() } : item));
+    try { changeBook(book.id, { type:"rename", title:name.trim() }); } catch { notify("Couldn’t rename notebook.", undefined, "error"); return; }
     setModal(null);
     notify("Notebook renamed.");
   }
   function saveNotebookReply(message) {
     if (message.saved) return;
+    if (book.accessRole && book.accessRole !== "editor") { notify("This role cannot add notebook blocks.",undefined,"error"); return; }
     setChatFindingId(chatFinding.id);
     const finding = {
       id: crypto.randomUUID(), question: message.question, kind: "literature", note: "",
@@ -782,24 +816,24 @@ export function App() {
       sourceFindingId: chatFinding.id, sourceMessageId: message.id,
       result: { title: "Notebook follow-up", summary: message.answer, sources: chatFinding.result.sources },
     };
-    setBooks((previous) => updateFinding(previous, book.id, chatFinding.id, {
+    try { commitBooks((previous) => updateFinding(previous, book.id, chatFinding.id, {
       conversation: chatFinding.conversation.map((item) => item.id === message.id ? { ...item, saved: true } : item),
-    }).map((item) => item.id === book.id ? { ...item, findings: [...item.findings, finding] } : item));
+    }).map((item) => item.id === book.id ? { ...item, findings: [...item.findings, finding] } : item)); } catch { notify("Couldn’t save response.",undefined,"error"); return; }
     notify("Response saved to this notebook.");
   }
+  function persistConversation(conversation) {
+    try {
+      if (book.accessRole && book.accessRole !== "editor") throw Error("This role cannot change the notebook discussion.");
+      commitBooks(previous => {
+        const current = previous.find(b => b.id === book.id)?.findings.find(f => f.id === chatFinding.id);
+        if (!current) throw Error("Saved block no longer exists.");
+        const existing = current.conversation || [];
+        return updateFinding(previous, book.id, chatFinding.id, { conversation:[...existing,...conversation.filter(m => !existing.some(old => old.id === m.id))] });
+      }); return true;
+    } catch { notify("Couldn’t save the discussion. Your question is back in the composer.",undefined,"error"); return false; }
+  }
   function exportBook() {
-    download(
-      book.title.replace(/[^a-z0-9 -]/gi, "") + ".md",
-      `# ${book.title}\n\n` +
-        book.findings
-          .map(
-            (f) =>
-              markdown(f).replace(/^# /, "## ") +
-              (f.contentMarkdown !== undefined && f.result.sources.length ? "\n\n### Sources kept with this answer\n" + f.result.sources.map((source) => `- [${source.title}](${source.url})`).join("\n") : "") +
-              (f.note ? "\n\n### My notes\n" + f.note : ""),
-          )
-          .join("\n\n"),
-    );
+    downloadNotebook(book.title, exportNotebook(book, "md"));
     notify("Notebook exported as Markdown.");
   }
   async function copy() {
@@ -1091,17 +1125,10 @@ export function App() {
                   </div>
                 ) : <p className="text-xs text-muted-foreground">Dataset: {current.result.filename}</p>}
               </section>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="saved-panel-note">Your notes</Label>
-                  <span className="text-xs text-muted-foreground">Saved automatically</span>
-                </div>
-                <Textarea id="saved-panel-note" className="min-h-36 border-transparent bg-secondary/60 text-base" placeholder="What matters for your research? Add an observation or next step…" value={book?.findings.find((f) => f.id === current.id)?.note || ""} onChange={(e) => editNote(current.id, e.target.value)} />
-                <p className="text-xs leading-relaxed text-muted-foreground">Your answer, sources and notes stay together. Changes are saved on this device.</p>
-              </div>
+              <NotebookNote key={`${book.id}:${current.id}`} bookId={book.id} finding={book.findings.find((f) => f.id === current.id)} onSave={changeBook} onNotify={notify} role={book.accessRole || "editor"} />
               <div className="flex flex-wrap gap-3">
-                <Button onClick={() => { setModal(null); finishGuidance(); nav("notebook"); setNotebookDetail(true); }}><NotebookPen />Open full notebook<ArrowRight /></Button>
-                <Button variant="secondary" onClick={() => setModal(null)}>Back to research</Button>
+                <Button onClick={() => requestNoteNavigation(() => { setModal(null); finishGuidance(); applyNav("notebook"); setNotebookDetail(true); })}><NotebookPen />Open full notebook<ArrowRight /></Button>
+                <Button variant="secondary" onClick={() => requestNoteNavigation(() => setModal(null))}>Back to research</Button>
               </div>
             </div>
   );
@@ -1276,7 +1303,6 @@ export function App() {
               )
             }
             aria-label="Main navigation"
-            notebookCount={books.length}
           />
           <Badge variant="outline" className="ml-auto hidden sm:inline-flex">
             Local demo
@@ -1993,63 +2019,25 @@ export function App() {
               </div>
             )}
             {view === "notebook" && (
-              <div className={cn("mx-auto", books.length ? "flex min-h-0 flex-col xl:h-full" : "max-w-5xl space-y-8")}>
-                {!books.length && (
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="space-y-2">
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                      Your notebooks
-                    </h1>
-                    <p className="text-base leading-relaxed text-muted-foreground">
-                      Findings, sources and your own thinking.
-                    </p>
-                  </div>
-                  {books.length > 0 && <Button
-                    className="rounded-md"
-                    onClick={() => {
-                      setName("");
-                      setModal("new-book");
-                    }}
-                  >
-                    <Plus />
-                    New notebook
-                  </Button>}
-                </div>
-                )}
-                {!books.length ? (
-                  <section aria-label="Empty notebook" className="flex min-h-[60svh] flex-col items-center justify-center px-4 py-12 text-center sm:py-16">
-                      <div className="mb-6 flex size-20 items-center justify-center rounded-full bg-primary/10" aria-hidden="true">
-                        <NotebookPen className="size-8 text-primary" strokeWidth={1.5} />
-                      </div>
-                      <h2 className="max-w-md text-2xl font-semibold tracking-tight">
-                        Keep useful findings together
-                      </h2>
-                      <p className="mt-3 max-w-md text-base leading-relaxed text-muted-foreground">
-                        Start in Chat, then save an answer and its sources here.
-                        Add your notes and build on what you find.
-                      </p>
-                      <Button className="mt-7 h-11 rounded-md px-6 has-[>svg]:px-6" onClick={fresh}>
-                        Start research
-                        <ArrowRight />
-                      </Button>
-                  </section>
-                ) : (
-                  notebookDetail ? <NotebookWorkspace
-                    books={books} book={book} finding={chatFinding}
+              <div className="mx-auto flex min-h-0 flex-col xl:h-full">
+                {notebookDetail && book ? <NotebookWorkspace
+                    records={records}
+                  books={books} book={book} finding={chatFinding}
                     onBook={(id) => { setBookId(id); setChatFindingId(null); }}
                     onFinding={setChatFindingId}
                     discussionOpen={discussionOpen}
+                    onCloseDiscussion={() => setDiscussionOpen(false)}
                     onDiscuss={(id) => { setChatFindingId(id); setDiscussionOpen(true); }}
-                    onNew={() => { setName(""); setModal("new-book"); }}
+                    onNew={() => requestNoteNavigation(() => { setNewBookFolderId(null); setName(""); setModal("new-book"); })}
                     onRename={() => { setName(book.title); setModal("rename-book"); }}
                     onExport={exportBook} onResearch={fresh}
                     onOpen={(finding) => openRecord(records.find((record) => record.id === (finding.originResearchId || finding.id)) || finding)}
-                    onEdit={editFinding} onNote={editNote} onRemove={removeFinding}
-                    onConversation={(conversation) => setBooks((previous) => updateFinding(previous, book.id, chatFinding.id, { conversation }))}
+                    onEdit={editFinding} onChange={changeBook} onNotify={notify} onRemove={(id) => requestNoteNavigation(() => removeFinding(id))}
+                    onConversation={persistConversation}
                     onSaveReply={saveNotebookReply}
-                    onBack={() => setNotebookDetail(false)}
-                  /> : <NotebookLibrary books={books} onOpen={(id) => { setBookId(id); setChatFindingId(null); setNotebookDetail(true); }} onNew={() => { setName(""); setModal("new-book"); }} />
-                )}
+                    onBack={() => requestNoteNavigation(() => setNotebookDetail(false))}
+                  /> : <NotebookLibrary books={books} onBooks={commitBooks} onNotify={notify} onOpen={(id) => { setBookId(id); setChatFindingId(null); setNotebookDetail(true); }} onNew={(folderId) => { setNewBookFolderId(folderId || null); setName(""); setModal("new-book"); }} />
+                }
 
               </div>
             )}
@@ -2076,7 +2064,7 @@ export function App() {
         <aside aria-label="Notebook panel" className="my-3 mr-3 flex h-[calc(100svh-1.5rem)] w-[380px] shrink-0 flex-col overflow-hidden rounded-3xl bg-background">
           <div className="flex h-16 shrink-0 items-center justify-between gap-3 px-5">
             <h2 className="flex items-center gap-2 text-base font-semibold"><NotebookPen className="size-4 text-primary" />Notebook</h2>
-            <Button variant="ghost" size="icon" className="size-10 rounded-full text-foreground hover:bg-primary/15 hover:text-primary active:bg-primary/20 [&_svg]:size-4" aria-label="Close Notebook panel" onClick={() => setModal(null)}><X /></Button>
+            <Button variant="ghost" size="icon" className="size-10 rounded-full text-foreground hover:bg-primary/15 hover:text-primary active:bg-primary/20 [&_svg]:size-4" aria-label="Close Notebook panel" onClick={() => requestNoteNavigation(() => setModal(null))}><X /></Button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">{modal === "save" ? savePanelContent : notebookPanelContent}</div>
         </aside>
@@ -2084,7 +2072,7 @@ export function App() {
         )}
         {discussionOpen && view === "notebook" && notebookDetail && desktopNotebook && chatFinding && <motion.div key="finding-discussion-panel" className="shrink-0 overflow-hidden" initial={{width:0,opacity:0}} animate={{width:392,opacity:1}} exit={{width:0,opacity:0}} transition={{duration:reducedMotion ? 0 : 0.26,ease:[0.32,0.72,0,1]}}>
           <aside aria-label="Finding discussion sidebar" className="my-3 mr-3 h-[calc(100svh-1.5rem)] w-[380px] overflow-hidden rounded-3xl bg-background">
-            <NotebookConversation key={`${book.id}-${chatFinding.id}`} finding={chatFinding} workspace detached onClose={() => setDiscussionOpen(false)} onConversation={(conversation) => setBooks((previous) => updateFinding(previous, book.id, chatFinding.id, {conversation}))} onSaveReply={saveNotebookReply} />
+            <NotebookConversation key={`${book.id}-${chatFinding.id}`} finding={chatFinding} workspace detached onClose={() => setDiscussionOpen(false)} onConversation={persistConversation} onSaveReply={saveNotebookReply} />
           </aside>
         </motion.div>}
       </AnimatePresence>
@@ -2186,7 +2174,7 @@ export function App() {
         </Modal>
       )}
       {(modal === "save" || modal === "saved") && !desktopNotebook && (
-        <Sheet open onOpenChange={(open) => { if (!open) setModal(null); }}>
+        <Sheet open onOpenChange={(open) => { if (!open) requestNoteNavigation(() => setModal(null)); }}>
           <SheetContent side="right" className="w-full overflow-y-auto border-0 bg-background p-6 sm:max-w-md">
             <SheetHeader className="px-0 pt-2 pb-6">
               <SheetTitle className="text-2xl">{modal === "saved" ? "Your finding in Notebook" : "Keep this finding"}</SheetTitle>
@@ -2211,6 +2199,7 @@ export function App() {
           onClose={() => setModal(null)}
         >
           <form onSubmit={newBook} className="space-y-5">
+            <NotebookTemplateSelect />
             <div className="space-y-3">
               <Label htmlFor="new-notebook-name">Notebook name</Label>
               <Input
