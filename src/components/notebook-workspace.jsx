@@ -1,9 +1,5 @@
 import { useEffect } from "react";
-import {
-  NotebookNavigator,
-  RelatedNotebooks,
-  ContextStepDialog,
-} from "./notebook-knowledge";
+import { NotebookNavigator, ContextStepDialog } from "./notebook-knowledge";
 import { blockHash } from "../notebook-knowledge";
 import {
   ResearchPicker,
@@ -263,21 +259,21 @@ export function NotebookWorkspace({
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <p className="text-xs text-muted-foreground">
-                      {block.origin === "personal"
-                        ? "Written by you"
-                        : (block.originResearchId &&
-                              block.originResearchId !== block.id) ||
-                            /notebook/i.test(block.result.title || "")
-                          ? "Saved from a notebook conversation"
-                          : "Saved from research"}
+                      {block.origin === "excerpt"
+                        ? "Saved from selected answer text"
+                        : block.origin === "personal"
+                          ? "Written by you"
+                          : (block.originResearchId &&
+                                block.originResearchId !== block.id) ||
+                              /notebook/i.test(block.result.title || "")
+                            ? "Saved from a notebook conversation"
+                            : "Saved from research"}
                     </p>
                     <p className="text-xs text-muted-foreground sm:ml-auto sm:text-right">
-                      Saved · {savedDate(block.savedAt)}
-                      {block.editedAt
-                        ? ` · Your edits · ${savedDate(block.editedAt)}`
-                        : ""}
-                      {book.conclusionFindingId === block.id
-                        ? " · Summary starting block"
+                      {(block.editedAt || block.savedAt) &&
+                      savedDate(block.editedAt || block.savedAt) !==
+                        "date unavailable"
+                        ? savedDate(block.editedAt || block.savedAt)
                         : ""}
                     </p>
                   </div>
@@ -432,14 +428,6 @@ export function NotebookWorkspace({
                             Insert block below
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            disabled={role !== "editor" || !!book.summary}
-                            onClick={() =>
-                              run({ type: "conclusion", findingId: block.id })
-                            }
-                          >
-                            Use as summary starting text
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
                             variant="destructive"
                             disabled={role !== "editor"}
                             onClick={() => onRemove(block.id)}
@@ -483,7 +471,6 @@ export function NotebookWorkspace({
                       bookId={book.id}
                       finding={block}
                       role={role}
-                      keySourceUrls={book.keySourceUrls || []}
                       onChange={onChange}
                     />
                     <NotebookNote
@@ -500,13 +487,6 @@ export function NotebookWorkspace({
             ))}
           </div>
         )}
-        <RelatedNotebooks
-          book={book}
-          books={books}
-          role={role}
-          onChange={onChange}
-          onOpen={onBook}
-        />
       </div>
       <ContextStepDialog
         book={book}

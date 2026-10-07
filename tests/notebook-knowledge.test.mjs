@@ -88,7 +88,7 @@ test("templates contain editable structure without invented sources and have dis
   );
   assert.deepEqual(templateFindings("blank"), []);
 });
-test("context tasks and notebook links validate targets, preserve context and respect roles", () => {
+test("context tasks validate targets and preserve context alongside legacy links", () => {
   const next = changeNotebook(seed, "book", {
     type: "task-add",
     text: "Inspect method",
@@ -107,42 +107,8 @@ test("context tasks and notebook links validate targets, preserve context and re
       }),
     /context/,
   );
-  const linked = changeNotebook(next, "book", {
-    type: "notebook-link",
-    targetId: "other",
-  });
-  assert.deepEqual(linked[0].linkedNotebookIds, ["other"]);
-  assert.throws(
-    () =>
-      changeNotebook(seed, "book", {
-        type: "notebook-link",
-        targetId: "missing",
-      }),
-    /Notebook/,
-  );
-  assert.throws(
-    () =>
-      changeNotebook(seed, "book", { type: "notebook-link", targetId: "book" }),
-    /itself/,
-  );
-  assert.throws(
-    () =>
-      changeNotebook([{ ...seed[0], accessRole: "viewer" }, seed[1]], "book", {
-        type: "notebook-link",
-        targetId: "other",
-      }),
-    /read-only/,
-  );
-  assert.equal(
-    importSnapshot(snapshot(linked[0], "editor"), "import").nextSteps[0]
-      .commentId,
-    "c",
-  );
-  assert.deepEqual(
-    changeNotebook(linked, "book", {
-      type: "notebook-unlink",
-      targetId: "other",
-    })[0].linkedNotebookIds,
-    [],
-  );
+  const legacy = { ...next[0], linkedNotebookIds: ["other"] };
+  const imported = importSnapshot(snapshot(legacy, "editor"), "import");
+  assert.equal(imported.nextSteps[0].commentId, "c");
+  assert.deepEqual(imported.linkedNotebookIds, ["other"]);
 });

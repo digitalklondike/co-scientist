@@ -290,7 +290,9 @@ export function NotebookNote({
       setExpanded(true);
       setError("");
       setWarning("");
-      requestAnimationFrame(() => inputRef.current?.focus());
+      requestAnimationFrame(() =>
+        inputRef.current?.focus({ preventScroll: true }),
+      );
     });
   }
   async function action(comment, type) {
@@ -365,7 +367,7 @@ export function NotebookNote({
       id={`comments-${finding.id}`}
       tabIndex={-1}
       aria-label={`Comments for ${finding.question}`}
-      className={`scroll-mt-6 space-y-4 rounded-2xl border border-border bg-secondary outline-none focus-visible:ring-2 focus-visible:ring-ring ${expanded ? "p-4 sm:p-6" : "px-4 py-2"}`}
+      className="scroll-mt-6 space-y-4 rounded-2xl border border-border bg-secondary px-4 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring [overflow-anchor:none]"
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <button
@@ -398,7 +400,7 @@ export function NotebookNote({
         )}
       </header>
       {expanded && (
-        <div id={`comment-list-${editorId}`} className="space-y-4">
+        <div id={`comment-list-${editorId}`} className="space-y-4 pb-2">
           {!!resolvedCount && (
             <Button
               variant="ghost"

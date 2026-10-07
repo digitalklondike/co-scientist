@@ -1,3 +1,5 @@
+import { AnswerSelection } from "./components/answer-selection";
+import { createNotebookExcerpt } from "./notebook-excerpts";
 import { NotebookTemplateSelect } from "./components/notebook-knowledge";
 import { templateFindings, parseBlockHash } from "./notebook-knowledge";
 import { cn } from "@/lib/utils";
@@ -478,6 +480,7 @@ function ResearchWorkspace() {
     [noteHint, setNoteHint] = useState(false),
     [showAllHistory, setShowAllHistory] = useState(false);
   const [chatFindingId, setChatFindingId] = useState(null);
+  const [excerptFinding, setExcerptFinding] = useState(null);
   const [newBookFolderId, setNewBookFolderId] = useState(null);
   const [notebookDetail, setNotebookDetail] = useState(false);
   const [discussionOpen, setDiscussionOpen] = useState(false);
@@ -783,7 +786,9 @@ function ResearchWorkspace() {
     applyNav("answer");
     });
   }
-  function showSaveDialog() {
+  const savingFinding = excerptFinding || current;
+  function showSaveDialog(selectedFinding = null) {
+    setExcerptFinding(selectedFinding);
     setName(
       current.kind === "data"
         ? "Gene expression analysis"
@@ -793,6 +798,7 @@ function ResearchWorkspace() {
     setModal("save");
   }
   function openSave() {
+    setExcerptFinding(null);
     const containing = books.find((b) =>
       b.findings.some((f) => f.id === current.id),
     );
@@ -805,13 +811,13 @@ function ResearchWorkspace() {
   function persistFinding(destination, title) {
     const id = destination === "new" ? crypto.randomUUID() : destination;
     const existing = books.find((b) => b.id === id);
-    if (existing?.findings.some((f) => f.id === current.id)) {
+    if (existing?.findings.some((f) => f.id === savingFinding.id)) {
       setModal("saved");
       setBookId(id);
       setNoteHint(guide);
       return;
     }
-    const finding = { ...current, note: "" };
+    const finding = { ...savingFinding, note: "", savedAt: savingFinding.savedAt || new Date().toISOString() };
     try { commitBooks((p) =>
       destination === "new"
         ? [
@@ -1114,7 +1120,7 @@ function ResearchWorkspace() {
   );
   const savePanelContent = current && (
 <form onSubmit={save} className="space-y-6">
-            {desktopNotebook && <div className="space-y-2"><h3 className="text-base font-semibold">Save this answer</h3><p className="text-base leading-relaxed text-muted-foreground">Choose a notebook to keep this answer, its sources and your notes together.</p></div>}
+            {desktopNotebook && <div className="space-y-2"><h3 className="text-base font-semibold">{excerptFinding ? "Save selected text" : "Save to Notebook"}</h3><p className="text-base leading-relaxed text-muted-foreground">{excerptFinding ? "Keep this excerpt with links to its original research and sources." : "Choose a notebook to keep this answer, its sources and your notes together."}</p></div>}
             <div className="space-y-3">
               <Label htmlFor="save-notebook">Save to notebook</Label>
               <Select value={target} onValueChange={setTarget}>
@@ -1146,11 +1152,11 @@ function ResearchWorkspace() {
             <div className="flex items-start gap-3 rounded-2xl bg-secondary/60 p-5">
               <FileText className="size-5 shrink-0" />
               <div className="space-y-1">
-                <p className="text-base font-medium">{current.question}</p>
-                <p className="line-clamp-3 text-base leading-relaxed text-muted-foreground">{current.result.summary}</p>
+                <p className="text-base font-medium">{savingFinding.question}</p>
+                <p className="line-clamp-3 text-base leading-relaxed text-muted-foreground">{savingFinding.result.summary}</p>
                 <p className="text-xs text-muted-foreground">
-                  {current.result.sources.length
-                    ? current.result.sources.length + " source links included"
+                  {savingFinding.result.sources.length
+                    ? savingFinding.result.sources.length + " source links included"
                     : "Data summary included"}
                 </p>
               </div>
@@ -1182,20 +1188,20 @@ function ResearchWorkspace() {
               <section className="space-y-4 rounded-2xl bg-secondary/60 p-5" aria-label="Saved finding preview">
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">Your research question</p>
-                  <h3 className="text-base font-semibold leading-relaxed">{current.question}</h3>
+                  <h3 className="text-base font-semibold leading-relaxed">{savingFinding.question}</h3>
                 </div>
-                {book?.findings.find((f) => f.id === current.id)?.contentMarkdown !== undefined ? (
+                {book?.findings.find((f) => f.id === savingFinding.id)?.contentMarkdown !== undefined ? (
                   <Accordion type="single" collapsible><AccordionItem value="edited-answer" className="border-0">
-                    <AccordionTrigger className="items-center py-2 text-xs [&>svg]:translate-y-0">Edited answer saved</AccordionTrigger>
-                    <AccordionContent><NotebookMarkdown>{book.findings.find((f) => f.id === current.id).contentMarkdown}</NotebookMarkdown></AccordionContent>
+                    <AccordionTrigger className="items-center py-2 text-xs [&>svg]:translate-y-0">{excerptFinding ? "Selected text saved" : "Edited answer saved"}</AccordionTrigger>
+                    <AccordionContent><NotebookMarkdown>{book.findings.find((f) => f.id === savingFinding.id).contentMarkdown}</NotebookMarkdown></AccordionContent>
                   </AccordionItem></Accordion>
-                ) : <p className="text-base leading-relaxed">{current.result.summary}</p>}
-                {(book?.findings.find((f) => f.id === current.id)?.contentMarkdown === undefined && book?.findings.find((f) => f.id === current.id)?.result.report) && (
+                ) : <p className="text-base leading-relaxed">{savingFinding.result.summary}</p>}
+                {(book?.findings.find((f) => f.id === savingFinding.id)?.contentMarkdown === undefined && book?.findings.find((f) => f.id === savingFinding.id)?.result.report) && (
                   <Accordion type="single" collapsible>
                     <AccordionItem value="saved-analysis" className="border-0">
                       <AccordionTrigger className="items-center py-2 text-xs [&>svg]:translate-y-0">Full analysis saved</AccordionTrigger>
                       <AccordionContent className="space-y-4 text-base leading-relaxed">
-                        {book.findings.find((f) => f.id === current.id).result.report.sections.map((section) => (
+                        {book.findings.find((f) => f.id === savingFinding.id).result.report.sections.map((section) => (
                           <section key={section.title} className="space-y-2">
                             <h4 className="font-semibold">{section.title}</h4>
                             {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
@@ -1205,20 +1211,20 @@ function ResearchWorkspace() {
                     </AccordionItem>
                   </Accordion>
                 )}
-                {current.result.sources.length > 0 ? (
+                {savingFinding.result.sources.length > 0 ? (
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground">Sources kept with this answer</p>
                     <div className="flex flex-wrap gap-2">
-                      {current.result.sources.map((source) => (
+                      {savingFinding.result.sources.map((source) => (
                         <Button key={source.url} asChild variant="secondary" size="sm" className="bg-white text-primary hover:bg-primary/15 hover:text-primary active:bg-primary/20">
                           <a href={source.url} target="_blank" rel="noreferrer"><BookOpen />{source.author}, {source.year}<ArrowUpRight /></a>
                         </Button>
                       ))}
                     </div>
                   </div>
-                ) : <p className="text-xs text-muted-foreground">Dataset: {current.result.filename}</p>}
+                ) : <p className="text-xs text-muted-foreground">{excerptFinding ? "Selected answer text · Original research linked" : `Dataset: ${savingFinding.result.filename}`}</p>}
               </section>
-              <NotebookNote key={`${book.id}:${current.id}`} bookId={book.id} finding={book.findings.find((f) => f.id === current.id)} onSave={changeBook} onNotify={notify} role={book.accessRole || "editor"} />
+              <NotebookNote key={`${book.id}:${savingFinding.id}`} bookId={book.id} finding={book.findings.find((f) => f.id === savingFinding.id)} onSave={changeBook} onNotify={notify} role={book.accessRole || "editor"} />
               <div className="flex flex-wrap gap-3">
                 <Button onClick={() => requestNoteNavigation(() => { setModal(null); finishGuidance(); applyNav("notebook"); setNotebookDetail(true); })}><NotebookPen />Open full notebook<ArrowRight /></Button>
                 <Button variant="secondary" onClick={() => requestNoteNavigation(() => setModal(null))}>Back to research</Button>
@@ -1756,6 +1762,7 @@ function ResearchWorkspace() {
               <div className="mx-auto max-w-3xl space-y-8">
                 {current.context && <ResearchContextChip context={current.context} onOpen={records.some((record) => record.id === current.context.id) ? () => openRecord(records.find((record) => record.id === current.context.id)) : undefined} />}
                 <QuestionBubble>{current.question}</QuestionBubble>
+                <AnswerSelection key={current.id} onSave={text => { showSaveDialog(createNotebookExcerpt(current, text, crypto.randomUUID(), new Date().toISOString())); }}>
                 <article
                   aria-label="Co-Scientist answer"
                   className="flex flex-col gap-6"
@@ -2028,6 +2035,7 @@ function ResearchWorkspace() {
                   )}
                   {current.result.needsFile && answerDetails}
                 </article>
+                </AnswerSelection>
                 {!current.result.needsFile && (
                   <section
                     aria-label="Recommended follow-up questions"

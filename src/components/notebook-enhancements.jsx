@@ -1,6 +1,6 @@
 import { NotebookSummary } from "./notebook-summary";
 import { SearchInput } from "@/components/ui/search-input";
-import { citedSummarySources, summaryNeedsReview } from "../notebook-summary";
+import { notebookSources } from "../notebook-summary";
 import { CitationInsert, VersionComparison } from "./notebook-knowledge";
 import { motion, useReducedMotion } from "motion/react";
 import { createPortal } from "react-dom";
@@ -20,7 +20,6 @@ import {
   Trash2,
   History,
   Bold,
-  Bookmark,
   Italic,
   List,
   Heading2,
@@ -223,6 +222,15 @@ export function NotebookOverview({ book, role, onChange }) {
     onPlace: (id, targetId) =>
       run({ type: "block-place", findingId: id, targetId }),
   });
+  const taskSorting = useNotebookSort({
+    group: "notebook-tasks",
+    items: book.nextSteps || [],
+    onNotify: setError,
+    onMove: (taskId, direction) =>
+      run({ type: "task-move", taskId, direction }),
+    onPlace: (taskId, targetId) =>
+      run({ type: "task-place", taskId, targetId }),
+  });
   const open = book.findings.flatMap((f) =>
     commentsFor(f)
       .filter((c) => !c.resolved)
@@ -245,16 +253,7 @@ export function NotebookOverview({ book, role, onChange }) {
             "Contents",
             `${book.findings.length} ${book.findings.length === 1 ? "block" : "blocks"}`,
           ],
-          [
-            "review",
-            ClipboardCheck,
-            "Overview",
-            book.summary
-              ? summaryNeedsReview(book)
-                ? "Needs review"
-                : "Summary saved"
-              : "Write a summary",
-          ],
+          ["review", ClipboardCheck, "Overview", "Automatic summary"],
           [
             "steps",
             ListChecks,
@@ -361,20 +360,19 @@ export function NotebookOverview({ book, role, onChange }) {
               <h3 className="flex items-center gap-2 text-base font-medium">
                 <BookOpen className="size-4 text-primary" /> Key evidence
                 <span className="ml-auto text-xs font-normal text-muted-foreground">
-                  {citedSummarySources(book).length}{" "}
-                  {citedSummarySources(book).length === 1
+                  {notebookSources({ ...book, summary: undefined }).length}{" "}
+                  {notebookSources({ ...book, summary: undefined }).length === 1
                     ? "source"
                     : "sources"}
                 </span>
               </h3>
-              {!citedSummarySources(book).length && (
+              {!notebookSources({ ...book, summary: undefined }).length && (
                 <p className="mt-2 text-[14px] text-muted-foreground">
-                  Insert citations in your summary to show its supporting
-                  evidence here.
+                  Sources appear here when the saved records include them.
                 </p>
               )}
               <div className="mt-3 space-y-1">
-                {citedSummarySources(book).map((s) => (
+                {notebookSources({ ...book, summary: undefined }).map((s) => (
                   <Button
                     asChild
                     variant="ghost"
@@ -448,8 +446,24 @@ export function NotebookOverview({ book, role, onChange }) {
       >
         <div className="space-y-3">
           <div className="space-y-0.5">
-            {(book.nextSteps || []).map((t) => (
-              <div className="flex items-center gap-2" key={t.id}>
+            <span className="sr-only" role="status">
+              {taskSorting.status}
+            </span>
+            {taskSorting.previewItems.map((t) => (
+              <motion.div
+                layout={reducedMotion ? false : "position"}
+                transition={{ type: "spring", duration: 0.3, bounce: 0 }}
+                data-sort-group="notebook-tasks"
+                data-sort-id={t.id}
+                className={`flex items-center gap-2 rounded-md ${taskSorting.dragging?.id === t.id ? "bg-accent" : ""}`}
+                key={t.id}
+              >
+                {role === "editor" && (
+                  <NotebookDragHandle
+                    label={`next step: ${t.text}`}
+                    {...taskSorting.handle(t.id)}
+                  />
+                )}
                 <label className="flex min-h-8 flex-1 items-center gap-2 py-1 text-[14px] max-sm:min-h-11">
                   <NotebookCheckbox
                     aria-label={t.text}
@@ -496,7 +510,7 @@ export function NotebookOverview({ book, role, onChange }) {
                     <Trash2 />
                   </Button>
                 )}
-              </div>
+              </motion.div>
             ))}
           </div>
           {role === "editor" && (
@@ -533,13 +547,7 @@ export function NotebookOverview({ book, role, onChange }) {
     </section>
   );
 }
-export function SourceEditor({
-  bookId,
-  finding,
-  role,
-  onChange,
-  keySourceUrls = [],
-}) {
+export function SourceEditor({ bookId, finding, role, onChange }) {
   const [open, setOpen] = useState(false),
     [form, setForm] = useState({ title: "", url: "", author: "", year: "" }),
     [error, setError] = useState("");
@@ -601,25 +609,6 @@ export function SourceEditor({
                   <ArrowUpRight />
                 </a>
               </Button>
-              {role === "editor" && (
-                <Button
-                  variant={keySourceUrls.includes(s.url) ? "tonal" : "ghost"}
-                  size="icon-sm"
-                  aria-label={`Key source: ${s.title}`}
-                  aria-pressed={keySourceUrls.includes(s.url)}
-                  onClick={() =>
-                    onChange(bookId, { type: "key-source", url: s.url })
-                  }
-                >
-                  <Bookmark
-                    className={
-                      keySourceUrls.includes(s.url)
-                        ? "fill-primary text-primary"
-                        : ""
-                    }
-                  />
-                </Button>
-              )}
               {s.manual && role === "editor" && (
                 <Button
                   variant="ghost"
@@ -732,14 +721,6 @@ export function EditorExtras({
   return (
     <>
       {inputRef && (
-        <CitationInsert
-          finding={finding}
-          inputRef={inputRef}
-          draft={draft}
-          onDraft={onDraft}
-        />
-      )}
-      {inputRef && (
         <div
           className="flex flex-wrap gap-1"
           role="toolbar"
@@ -763,6 +744,14 @@ export function EditorExtras({
               <Icon />
             </Button>
           ))}
+          <span className="ml-auto">
+            <CitationInsert
+              finding={finding}
+              inputRef={inputRef}
+              draft={draft}
+              onDraft={onDraft}
+            />
+          </span>
         </div>
       )}
       {!historyOnly && onRestore && !!finding.versions?.length && (

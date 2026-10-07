@@ -1,4 +1,4 @@
-import { sortNotebookItems, placeNotebookItem } from "../notebook-presentation";
+import { placeNotebookItem } from "../notebook-presentation";
 import { useNotebookSort, NotebookDragHandle } from "./notebook-sortable";
 import { notebookMatches } from "../notebook-search.js";
 import { useRef, useState } from "react";
@@ -46,7 +46,6 @@ import {
 } from "@/components/ui/dialog";
 import { importSnapshot, commentsFor } from "../notebook-flows";
 export function NotebookLibrary({ books, onOpen, onNew, onBooks, onNotify }) {
-  const [sortMode, setSortMode] = useState("manual");
   const [search, setSearch] = useState("");
   const [folders, setFolders] = useState(() => {
     try {
@@ -152,7 +151,7 @@ export function NotebookLibrary({ books, onOpen, onNew, onBooks, onNotify }) {
         : true,
   );
   const sorting = useNotebookSort({
-    items: sortNotebookItems(results, sortMode),
+    items: results,
     group: "notebook-library",
     onNotify,
     onPlace: (id, targetId) =>
@@ -195,30 +194,12 @@ export function NotebookLibrary({ books, onOpen, onNew, onBooks, onNotify }) {
           </Button>
           <Button
             variant="outline"
-
-            onClick={() => open("new-folder")}
-          >
-            <FolderPlus />
-            New folder
-          </Button>
-          <Button
-            variant="ghost"
-
+            size="icon"
+            aria-label="Import notebook"
             onClick={() => upload.current?.click()}
           >
             <Upload />
-            Import
           </Button>
-          <Select value={sortMode} onValueChange={setSortMode}>
-            <SelectTrigger aria-label="Sort notebooks" className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="manual">Manual order</SelectItem>
-              <SelectItem value="title">Title A–Z</SelectItem>
-              <SelectItem value="updated">Recently updated</SelectItem>
-            </SelectContent>
-          </Select>
           <input
             ref={upload}
             type="file"
@@ -228,88 +209,108 @@ export function NotebookLibrary({ books, onOpen, onNew, onBooks, onNotify }) {
             onChange={importFile}
           />
         </div>
-        {!!folders.length && (
+        {
           <section aria-label="Notebook folders" className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant={folderId ? "ghost" : "secondary"}
-                size="sm"
-                onClick={() => {
-                  setFolderId(null);
-                  setSearch("");
-                }}
+            {currentFolder ? (
+              <nav
+                aria-label="Notebook folder breadcrumb"
+                className="flex items-center gap-2 text-sm"
               >
-                All notebooks
-              </Button>
-              {currentFolder && (
-                <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <ArrowRight className="size-3" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setFolderId(null);
+                    setSearch("");
+                  }}
+                >
+                  All notebooks
+                </Button>
+                <ArrowRight className="size-3 text-muted-foreground" />
+                <span aria-current="page" className="flex items-center gap-2">
                   <Folder className="size-4" />
                   {currentFolder.title}
                 </span>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {folders
-                .filter(
-                  (f) =>
-                    !search ||
-                    f.title.toLowerCase().includes(search.toLowerCase()),
-                )
-                .map((f) => (
-                  <div
-                    key={f.id}
-                    className={`flex items-center overflow-hidden rounded-xl border transition-colors duration-150 motion-reduce:transition-none [&:has(:focus-visible)]:ring-2 [&:has(:focus-visible)]:ring-ring [&:has(:focus-visible)]:ring-offset-2 ${folderId === f.id ? "border-primary bg-accent" : "border-border bg-secondary hover:border-primary/50"}`}
-                  >
-                    <Button
-                      static
-                      variant="ghost"
-                      aria-pressed={folderId === f.id}
-                      className="rounded-none focus-visible:border-transparent focus-visible:ring-0"
-                      onClick={() => {
-                        setFolderId(f.id);
-                        setSearch("");
-                      }}
+              </nav>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  static
+                  size="icon"
+                  className="h-10 w-16 rounded-xl border-dashed"
+                  aria-label="New folder"
+                  onClick={() => open("new-folder")}
+                >
+                  <FolderPlus />
+                </Button>
+                {!!folders.length && (
+                  <span
+                    aria-hidden="true"
+                    className="mx-1 h-7 w-px bg-border"
+                  />
+                )}
+                {folders
+                  .filter(
+                    (f) =>
+                      !search ||
+                      f.title.toLowerCase().includes(search.toLowerCase()),
+                  )
+                  .map((f) => (
+                    <div
+                      key={f.id}
+                      className={`flex items-center overflow-hidden rounded-xl border transition-colors duration-150 motion-reduce:transition-none [&:has(:focus-visible)]:ring-2 [&:has(:focus-visible)]:ring-ring [&:has(:focus-visible)]:ring-offset-2 ${folderId === f.id ? "border-primary bg-accent" : "border-border bg-secondary hover:border-primary/50"}`}
                     >
-                      <Folder />
-                      {f.title}
-                      <span className="text-xs text-muted-foreground">
-                        {books.filter((b) => b.folderId === f.id).length}
-                      </span>
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          static
-                          size="icon"
-                          className="rounded-none focus-visible:border-transparent focus-visible:ring-0"
-                          aria-label={`Folder actions for ${f.title}`}
-                        >
-                          <MoreHorizontal />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem
-                          onClick={() => open("rename-folder", f)}
-                        >
-                          <Pencil />
-                          Rename folder
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => open("delete-folder", f)}
-                        >
-                          <Trash2 />
-                          Delete folder
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                ))}
-            </div>
+                      <Button
+                        static
+                        variant="ghost"
+                        aria-pressed={folderId === f.id}
+                        className="rounded-none focus-visible:border-transparent focus-visible:ring-0"
+                        onClick={() => {
+                          setFolderId(f.id);
+                          setSearch("");
+                        }}
+                      >
+                        <Folder />
+                        {f.title}
+                        <span className="text-xs text-muted-foreground">
+                          {books.filter((b) => b.folderId === f.id).length}
+                        </span>
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            static
+                            size="icon"
+                            className="rounded-none focus-visible:border-transparent focus-visible:ring-0"
+                            aria-label={`Folder actions for ${f.title}`}
+                          >
+                            <MoreHorizontal />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem
+                            onClick={() => open("rename-folder", f)}
+                          >
+                            <Pencil />
+                            Rename folder
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => open("delete-folder", f)}
+                          >
+                            <Trash2 />
+                            Delete folder
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ))}
+              </div>
+            )}
           </section>
-        )}
+        }
         <div
           aria-label="Notebook list"
           className="min-h-0 space-y-3 xl:overflow-y-auto xl:overscroll-contain"
@@ -329,7 +330,7 @@ export function NotebookLibrary({ books, onOpen, onNew, onBooks, onNotify }) {
             >
               <NotebookDragHandle
                 label={book.title}
-                {...sorting.handle(book.id, sortMode !== "manual")}
+                {...sorting.handle(book.id)}
               />
               <Button
                 static
@@ -357,7 +358,6 @@ export function NotebookLibrary({ books, onOpen, onNew, onBooks, onNotify }) {
                   {book.findings.length} saved{" "}
                   {book.findings.length === 1 ? "block" : "blocks"}
                 </NotebookCount>
-                <ArrowRight className="shrink-0 text-primary max-sm:hidden" />
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -457,7 +457,7 @@ export function NotebookLibrary({ books, onOpen, onNew, onBooks, onNotify }) {
                     ? "Move an existing notebook here or create a new one."
                     : "Create a collection or save your next answer from Chat."}
               </p>
-              <Button variant="secondary" onClick={onNew}>
+              <Button variant="secondary" onClick={() => onNew(folderId)}>
                 <Plus />
                 New notebook
               </Button>

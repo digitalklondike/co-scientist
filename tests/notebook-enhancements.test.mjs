@@ -56,7 +56,7 @@ test("research picker rejects duplicates and saves a separate timestamped copy",
     /already/,
   );
 });
-test("structured sources validate URLs; tasks and conclusion respect read-only roles", () => {
+test("structured sources validate URLs; tasks respect read-only roles", () => {
   assert.throws(
     () =>
       changeNotebook(seed, "b", {
@@ -92,8 +92,6 @@ test("structured sources validate URLs; tasks and conclusion respect read-only r
   });
   b = changeNotebook(b, "b", { type: "task-toggle", taskId: "t" });
   assert.equal(b[0].nextSteps[0].done, true);
-  b = changeNotebook(b, "b", { type: "conclusion", findingId: "f" });
-  assert.equal(b[0].conclusionFindingId, "f");
   assert.throws(
     () =>
       changeNotebook([{ ...b[0], accessRole: "viewer" }], "b", {
@@ -142,10 +140,7 @@ test("history is bounded and snapshots retain next steps and chosen evidence", a
     title: "Reference",
     url: "https://example.com/paper",
   });
-  b = changeNotebook(b, "b", {
-    type: "key-source",
-    url: "https://example.com/paper",
-  });
+  b = [{ ...b[0], keySourceUrls: ["https://example.com/paper"] }]; // Legacy data remains importable.
   b = changeNotebook(b, "b", {
     type: "task-add",
     text: "Follow up",

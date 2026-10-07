@@ -292,7 +292,8 @@ export function FindingContent({
           </Button>
         )}
         {finding.contentMarkdown !== undefined &&
-          finding.origin !== "personal" && (
+          finding.origin !== "personal" &&
+          (finding.origin !== "excerpt" || finding.editedAt) && (
             <span className="ml-auto self-center text-xs text-muted-foreground">
               Edited in Notebook
             </span>
@@ -314,17 +315,9 @@ export function FindingContent({
             save();
           }}
         >
-          <Label htmlFor={`answer-editor-${finding.id}`}>{editorLabel}</Label>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            {editorDescription}
-          </p>
-          <EditorExtras
-            finding={finding}
-            bookId={bookId}
-            inputRef={inputRef}
-            draft={draft}
-            onDraft={updateDraft}
-          />
+          <Label className="sr-only" htmlFor={`answer-editor-${finding.id}`}>
+            {editorLabel}
+          </Label>
           <Button
             type="button"
             variant="outline"
@@ -354,6 +347,13 @@ export function FindingContent({
             className="min-h-80 font-mono text-base"
             value={draft}
             onChange={(event) => updateDraft(event.target.value)}
+          />
+          <EditorExtras
+            finding={finding}
+            bookId={bookId}
+            inputRef={inputRef}
+            draft={draft}
+            onDraft={updateDraft}
           />
           {error && (
             <p role="alert" className="text-xs text-destructive">

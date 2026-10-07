@@ -223,13 +223,23 @@ export function NotebookTools({
           )}
         </div>
         <NotebookActionGroup aria-label="Share and export">
-          <Button static variant="ghost" onClick={() => open("share")}>
+          <Button
+            static
+            variant="ghost"
+            size="icon"
+            aria-label="Share notebook"
+            onClick={() => open("share")}
+          >
             <Share2 />
-            Share
           </Button>
-          <Button static variant="ghost" onClick={() => open("export")}>
+          <Button
+            static
+            variant="ghost"
+            size="icon"
+            aria-label="Export notebook"
+            onClick={() => open("export")}
+          >
             <Download />
-            Export
           </Button>
         </NotebookActionGroup>
       </div>

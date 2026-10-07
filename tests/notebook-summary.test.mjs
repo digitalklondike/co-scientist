@@ -7,6 +7,7 @@ import {
   exportNotebook,
 } from "../src/notebook-flows.js";
 import {
+  generatedNotebookSummary,
   summaryNeedsReview,
   citedSummarySources,
 } from "../src/notebook-summary.js";
@@ -83,7 +84,10 @@ test("summary export, bounded history and malformed imports", () => {
     });
   }
   assert.equal(books[0].summary.versions.length, 5);
-  assert.match(exportNotebook(books[0], "md").body, /## Summary\s+Summary 7/);
+  assert.match(
+    exportNotebook(books[0], "md").body,
+    /## Summary[\s\S]*Automatically extracted[\s\S]*### Question[\s\S]*Evidence/,
+  );
   const invalid = {
     ...books[0],
     summary: { ...books[0].summary, sources: null },
@@ -92,4 +96,51 @@ test("summary export, bounded history and malformed imports", () => {
     () => importSnapshot(snapshot(invalid, "editor")),
     /Invalid summary/,
   );
+});
+
+test("automatic summary covers every record, follows edits and removal without overwriting legacy text", () => {
+  const book = structuredClone(seed[0]);
+  book.summary = { text: "Preserved manual summary" };
+  book.findings.push({
+    id: "second",
+    question: "Second question",
+    contentMarkdown:
+      "# Second question\n\nSecond finding. Another sentence. Extra detail.\n\nLimitations remain uncertain.",
+    result: { summary: "Old result", sources: [] },
+  });
+  const generated = generatedNotebookSummary(book);
+  assert.match(
+    generated,
+    /Question[\s\S]*Evidence[\s\S]*Second question[\s\S]*Second finding/,
+  );
+  assert.match(generated, /Limitations remain uncertain/);
+  assert.match(generated, /https:\/\/example.com\/paper/);
+  assert.doesNotMatch(
+    generated,
+    /Old result|Extra detail|Preserved manual summary/,
+  );
+  assert.equal(book.summary.text, "Preserved manual summary");
+  book.findings[1].contentMarkdown = "Updated finding.";
+  assert.match(generatedNotebookSummary(book), /Updated finding/);
+  book.findings.pop();
+  assert.doesNotMatch(generatedNotebookSummary(book), /Second question/);
+  assert.equal(generatedNotebookSummary({ findings: [] }), "");
+});
+
+test("extractive summary retains decimal values and strips citation syntax before sentence extraction", () => {
+  const text = generatedNotebookSummary({
+    findings: [
+      {
+        question: "Data",
+        contentMarkdown:
+          "[2](<https://example.com/2.0>)# Data\n\nMean is 2.75 and range is 1.25–3.50. Compare 0.05 with 0.15. Third sentence.",
+        result: { summary: "Old", sources: [] },
+      },
+    ],
+  });
+  assert.match(
+    text,
+    /Mean is 2.75 and range is 1.25–3.50. Compare 0.05 with 0.15./,
+  );
+  assert.doesNotMatch(text, /https|2#|Third sentence/);
 });

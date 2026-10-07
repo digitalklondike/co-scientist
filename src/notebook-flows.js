@@ -1,7 +1,11 @@
 import { placeNotebookItem } from "./notebook-presentation.js";
 import { markdown } from "./data.js";
 import { citationsWorkbook } from "./notebook-citations.js";
-import { researchRevision, notebookSources } from "./notebook-summary.js";
+import {
+  researchRevision,
+  notebookSources,
+  generatedNotebookSummary,
+} from "./notebook-summary.js";
 export function commentsFor(finding) {
   return (
     finding.comments ??
@@ -71,21 +75,6 @@ export function changeNotebook(books, bookId, action) {
       sources: structuredClone(notebookSources(book)),
       versions,
     };
-  } else if (
-    action.type === "notebook-link" ||
-    action.type === "notebook-unlink"
-  ) {
-    if (action.targetId === bookId)
-      throw Error("A notebook cannot link to itself.");
-    if (
-      action.type === "notebook-link" &&
-      !books.some((b) => b.id === action.targetId)
-    )
-      throw Error("Notebook no longer exists.");
-    next.linkedNotebookIds =
-      action.type === "notebook-link"
-        ? [...new Set([...(book.linkedNotebookIds || []), action.targetId])]
-        : (book.linkedNotebookIds || []).filter((id) => id !== action.targetId);
   } else if (action.type === "research-add") {
     const record = action.record;
     if (!record?.id || !record.result) throw Error("Select a research result.");
@@ -102,21 +91,6 @@ export function changeNotebook(books, bookId, action) {
         originQuestion: record.question,
       },
     ];
-  } else if (action.type === "key-source") {
-    if (
-      !book.findings.some((f) =>
-        f.result.sources.some((s) => s.url === action.url),
-      )
-    )
-      throw Error("Source no longer exists.");
-    const keys = book.keySourceUrls || [];
-    next.keySourceUrls = keys.includes(action.url)
-      ? keys.filter((url) => url !== action.url)
-      : [...keys, action.url];
-  } else if (action.type === "conclusion") {
-    if (!book.findings.some((f) => f.id === action.findingId))
-      throw Error("Block no longer exists.");
-    next.conclusionFindingId = action.findingId;
   } else if (action.type.startsWith("task-")) {
     next.nextSteps = [...(book.nextSteps || [])];
     if (action.type === "task-add") {
@@ -147,7 +121,23 @@ export function changeNotebook(books, bookId, action) {
           done: !next.nextSteps[ti].done,
         };
       else if (action.type === "task-delete") next.nextSteps.splice(ti, 1);
-      else throw Error("Unknown next step action.");
+      else if (action.type === "task-place") {
+        if (!next.nextSteps.some((t) => t.id === action.targetId))
+          throw Error("Next step no longer exists.");
+        next.nextSteps = placeNotebookItem(
+          next.nextSteps,
+          action.taskId,
+          action.targetId,
+        );
+      } else if (action.type === "task-move") {
+        const target = next.nextSteps[ti + action.direction];
+        if (target)
+          next.nextSteps = placeNotebookItem(
+            next.nextSteps,
+            action.taskId,
+            target.id,
+          );
+      } else throw Error("Unknown next step action.");
     }
   } else if (action.type === "block-add") {
     const question = requireText(action.title),
@@ -657,7 +647,11 @@ export function exportNotebook(book, format, includeComments = true) {
     "# " +
     book.title +
     "\n\n" +
-    (book.summary ? "## Summary\n\n" + book.summary.text + "\n\n" : "") +
+    (book.findings.length
+      ? "## Summary\n\nLocal demo · Automatically extracted from saved records.\n\n" +
+        generatedNotebookSummary(book) +
+        "\n\n"
+      : "") +
     ((book.nextSteps || []).length
       ? "## Next steps\n\n" +
         book.nextSteps
