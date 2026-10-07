@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export function WorkspaceTabs({
   value,
   onValueChange,
-  notebookCount,
+  notebookCount = 0,
   ...props
 }) {
   const listRef = useRef(null);

@@ -162,3 +162,10 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Notebook charts: pastel series adapted from the Auto-Fit Charts reference. */
+.notebook-source-chart {
+  --notebook-chart-1: #a9cfe5;
+  --notebook-chart-2: #b9d9cd;
+  --notebook-chart-3: #cbc7e5;
+}
