@@ -4,9 +4,24 @@ import {
   researchIntent,
   hasPromptPlaceholder,
   supportsPreparedTopic,
+  isPromptOnlyRequest,
   SCENARIOS,
 } from "../src/research-intent.js";
 import { EXAMPLES, answer } from "../src/data.js";
+
+test("request scope follows edited text rather than the starting card", () => {
+  for (const scenario of SCENARIOS.filter((item) => item.example === null)) {
+    const filled = scenario.prompt.replace(/\[[^\]]+\]/g, "cardiac reprogramming");
+    assert.equal(isPromptOnlyRequest(filled), true, scenario.id);
+  }
+  for (const examples of Object.values(EXAMPLES)) {
+    for (const [question] of examples) assert.equal(isPromptOnlyRequest(question), false, question);
+  }
+  assert.equal(isPromptOnlyRequest("How does cardiac reprogramming differ between mouse and human cells?"), false);
+  assert.equal(isPromptOnlyRequest("Plot distributions of SUN1 in my CSV"), true);
+  assert.equal(isPromptOnlyRequest("Calculate correlations between SUN1 and LMNA in my CSV"), true);
+  assert.equal(isPromptOnlyRequest("Rank hypotheses about cardiac maturation by feasibility"), true);
+});
 
 test("an example and a manually typed paraphrase select the same workflow", () => {
   assert.equal(researchIntent(EXAMPLES.hypotheses[0][0]), "hypotheses");

@@ -113,7 +113,7 @@ import {
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { ScenarioCards, ScenarioCatalog, ResearchContextChip, ScenarioDraftHint, IntentClarification } from "@/components/research-scenarios";
-import { researchIntent, hasPromptPlaceholder, supportsPreparedTopic } from "./research-intent.js";
+import { researchIntent, hasPromptPlaceholder, supportsPreparedTopic, isPromptOnlyRequest } from "./research-intent.js";
 import { researchContext, answerWithContext } from "./research-context.js";
 import { researchHistory, archiveResearchIds, restoreResearchIds, withResearchPresets } from "./research-history.js";
 import { ResearchHistory } from "./components/research-history";
@@ -763,8 +763,8 @@ function ResearchWorkspace() {
       input.current?.focus();
       return;
     }
-    if (selectedScenario?.example === null) {
-      setDraftNotice("Your question is kept. This scenario is a prompt template for demonstration and has no prepared answer in this local preview.");
+    if (!draftContext && isPromptOnlyRequest(question)) {
+      setDraftNotice("Your question is kept. This workflow has no prepared answer in this local preview. You can try a cardiac evidence or hypothesis question, or calculate CSV means and ranges.");
       return;
     }
     const kind = intentChoice || researchIntent(question, Boolean(file));
@@ -1346,7 +1346,7 @@ function ResearchWorkspace() {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="m-3 h-[calc(100svh-1.5rem)] min-h-0 min-w-0 flex-1 overflow-hidden rounded-3xl border-0 bg-background shadow-none max-md:m-0 max-md:h-svh max-md:rounded-none">
-        <header className="relative z-20 flex h-28 shrink-0 items-start gap-3 bg-background px-4 pt-2 sm:h-16 sm:items-center sm:px-6 sm:pt-0">
+        <header className="@container/workspace-header relative z-20 flex h-28 shrink-0 items-start gap-3 bg-background px-4 pt-2 sm:h-16 sm:items-center sm:px-6 sm:pt-0">
           <SidebarTrigger
             className="size-10 rounded-full text-foreground hover:bg-primary/15 hover:text-primary active:bg-primary/20 [&_svg]:size-4"
             aria-label="Toggle navigation"
@@ -1362,13 +1362,14 @@ function ResearchWorkspace() {
             aria-label="Main navigation"
             notebookCount={books.length}
           />
-          <Badge variant="outline" className="ml-auto hidden sm:inline-flex">
+          <div className="ml-auto flex items-center gap-3">
+          <Badge variant="outline" className="hidden @[720px]/workspace-header:inline-flex">
             Local demo
           </Badge>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                className="ml-auto size-10 rounded-full text-foreground hover:bg-primary/15 hover:text-primary active:bg-primary/20 sm:ml-0 [&_svg]:size-4"
+                className="size-10 rounded-full text-foreground hover:bg-primary/15 hover:text-primary active:bg-primary/20 [&_svg]:size-4"
                 variant="ghost"
                 size="icon"
                 aria-label="Help and capabilities"
@@ -1379,6 +1380,7 @@ function ResearchWorkspace() {
             </TooltipTrigger>
             <TooltipContent>Help and capabilities</TooltipContent>
           </Tooltip>
+          </div>
         </header>
         <div
           id="content"
@@ -1408,11 +1410,18 @@ function ResearchWorkspace() {
                 <div className={cn("space-y-3", fitHome && "shrink-0 space-y-2")}>
                   <div className="flex flex-wrap items-center gap-2">
                     <Identity />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto"
+                      onClick={() => setModal("sources")}
+                    >
+                      <BookOpen /> Sources and capabilities
+                    </Button>
                     {!guide && (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="ml-auto"
                         onClick={restartGuidance}
                       >
                         Start onboarding

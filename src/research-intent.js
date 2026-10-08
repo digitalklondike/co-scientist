@@ -286,3 +286,23 @@ export function supportsPreparedTopic(question) {
     question,
   );
 }
+
+// These workflows have prompts in the catalog, but no executable local demo.
+// Check the current request, never the card used to start the draft.
+const PROMPT_ONLY_WORKFLOWS = [
+  /\bcompare\b.{0,50}\bresearch methods\b/i,
+  /\b(?:prioriti[sz]e|rank)\b.{0,50}\bhypothes/i,
+  /\b(?:suggest|design|plan)\b.{0,40}\bexperiments?\b.{0,30}\btest\b/i,
+  /\b(?:check|assess|review)\b.{0,60}\b(?:data quality|missing values|outliers|inconsistent entries)\b/i,
+  /\b(?:visuali[sz]e|explore|plot|show)\b.{0,50}\bdistributions?\b/i,
+  /\b(?:explore|analy[sz]e|calculate)\b.{0,50}\b(?:relationships|correlations|associations)\b/i,
+  /\bmap\b.{0,40}\b(?:biological )?mechanisms?\b/i,
+  /\bassess\b.{0,40}\b(?:published |target )?evidence\b/i,
+  /\b(?:suggest|choose|identify)\b.{0,30}\bexperimental controls\b/i,
+  /\b(?:outline|design|plan)\b.{0,30}\ban experiment\b/i,
+  /\b(?:plan|design)\b.{0,30}\breplication study\b/i,
+];
+
+export function isPromptOnlyRequest(question) {
+  return PROMPT_ONLY_WORKFLOWS.some((pattern) => pattern.test(question));
+}
