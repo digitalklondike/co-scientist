@@ -56,7 +56,7 @@ export function AnswerSelection({ children, onSave }) {
     };
   }, []);
   return (
-    <div ref={root} className="contents">
+    <div ref={root} className="min-w-0">
       {children}
       {selection && (
         <Popover
@@ -69,17 +69,18 @@ export function AnswerSelection({ children, onSave }) {
             aria-label="Selected text actions"
             side="top"
             align="start"
-            sideOffset={8}
+            sideOffset={12}
             collisionPadding={12}
             onOpenAutoFocus={(e) => e.preventDefault()}
             onCloseAutoFocus={(e) => e.preventDefault()}
-            className="w-auto max-w-[calc(100vw-24px)] border-0 p-0 data-[state=open]:animate-none data-[state=closed]:animate-none"
-            style={{ boxShadow: "var(--notebook-floating-shadow)" }}
+            className="w-auto max-w-[calc(100vw-24px)] border border-border/70 bg-popover p-0 data-[state=open]:animate-none data-[state=closed]:animate-none"
+            style={{ boxShadow: "0 3px 6px -3px rgb(24 44 60 / 18%), 0 10px 20px -8px rgb(24 44 60 / 20%)" }}
           >
             <Button
               ref={action}
               variant="ghost"
               size="sm"
+              className="h-10 px-4 text-[14px] leading-5 text-foreground hover:bg-muted hover:text-foreground has-[>svg]:px-4 max-sm:min-h-11"
               aria-label="Save selected text to Notebook"
               onPointerDown={(e) => e.preventDefault()}
               onClick={() => {
@@ -89,7 +90,7 @@ export function AnswerSelection({ children, onSave }) {
               }}
             >
               <NotebookPen />
-              Save to Notebook
+              Save selection
             </Button>
           </PopoverContent>
         </Popover>

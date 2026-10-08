@@ -257,36 +257,38 @@ export function ScenarioCatalog({
           </SelectContent>
         </Select>
       </div>
-      <p role="status" className="text-xs text-muted-foreground">
-        {matching.length} {matching.length === 1 ? "scenario" : "scenarios"}
-      </p>
-      {matching.length ? (
-        <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:[@media(max-height:899px)]:gap-2">
-          {matching.map((scenario) => (
-            <ScenarioCard
-              key={scenario.id}
-              scenario={scenario}
-              onChoose={onChoose}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-3 rounded-xl bg-secondary/60 px-6 py-10 text-center">
-          <h2 className="text-2xl font-semibold">No matching scenarios</h2>
-          <p className="text-base text-muted-foreground">
-            Try a different search or show all scenarios.
-          </p>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setSearch("");
-              setTopic("all");
-            }}
-          >
-            Show all scenarios
-          </Button>
-        </div>
-      )}
+      <div className="space-y-2">
+        <p role="status" className="text-xs text-muted-foreground">
+          {matching.length} {matching.length === 1 ? "scenario" : "scenarios"}
+        </p>
+        {matching.length ? (
+          <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:[@media(max-height:899px)]:gap-2">
+            {matching.map((scenario) => (
+              <ScenarioCard
+                key={scenario.id}
+                scenario={scenario}
+                onChoose={onChoose}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3 rounded-xl bg-secondary/60 px-6 py-10 text-center">
+            <h2 className="text-2xl font-semibold">No matching scenarios</h2>
+            <p className="text-base text-muted-foreground">
+              Try a different search or show all scenarios.
+            </p>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setSearch("");
+                setTopic("all");
+              }}
+            >
+              Show all scenarios
+            </Button>
+          </div>
+        )}
+      </div>
       <p className="text-xs leading-relaxed text-muted-foreground">
         {SCENARIOS.length} example prompts. Prepared demo answers are available
         for selected scenarios; CSV means, ranges and bar charts use real local

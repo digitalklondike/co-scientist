@@ -353,10 +353,10 @@ export function NotebookOverview({ book, role, onChange }) {
           <div className="flex flex-col gap-3">
             <section
               className="min-w-0 rounded-lg bg-white p-4"
-              aria-label="Key evidence"
+              aria-label="Sources"
             >
               <h3 className="flex items-center gap-2 text-base font-medium">
-                <BookOpen className="size-4 text-primary" /> Key evidence
+                <BookOpen className="size-4 text-primary" /> Sources
                 <span className="ml-auto text-xs font-normal text-muted-foreground">
                   {notebookSources({ ...book, summary: undefined }).length}{" "}
                   {notebookSources({ ...book, summary: undefined }).length === 1
