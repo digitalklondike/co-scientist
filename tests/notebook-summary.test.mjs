@@ -86,7 +86,7 @@ test("summary export, bounded history and malformed imports", () => {
   assert.equal(books[0].summary.versions.length, 5);
   assert.match(
     exportNotebook(books[0], "md").body,
-    /## Summary[\s\S]*Automatically extracted[\s\S]*### Question[\s\S]*Evidence/,
+    /## Summary\n\nLocal demo · Overview of saved records.\n\nEvidence\./,
   );
   const invalid = {
     ...books[0],
@@ -98,7 +98,7 @@ test("summary export, bounded history and malformed imports", () => {
   );
 });
 
-test("automatic summary covers every record, follows edits and removal without overwriting legacy text", () => {
+test("automatic overview combines records in one paragraph and follows edits and removal without overwriting legacy text", () => {
   const book = structuredClone(seed[0]);
   book.summary = { text: "Preserved manual summary" };
   book.findings.push({
@@ -109,12 +109,10 @@ test("automatic summary covers every record, follows edits and removal without o
     result: { summary: "Old result", sources: [] },
   });
   const generated = generatedNotebookSummary(book);
-  assert.match(
-    generated,
-    /Question[\s\S]*Evidence[\s\S]*Second question[\s\S]*Second finding/,
-  );
+  assert.match(generated, /Evidence[\s\S]*Second finding/);
   assert.match(generated, /Limitations remain uncertain/);
-  assert.match(generated, /https:\/\/example.com\/paper/);
+  assert.doesNotMatch(generated, /\n|https:\/\/|Second question/);
+  assert.match(exportNotebook(book, "md").body, /https:\/\/example.com\/paper/);
   assert.doesNotMatch(
     generated,
     /Old result|Extra detail|Preserved manual summary/,
@@ -123,8 +121,52 @@ test("automatic summary covers every record, follows edits and removal without o
   book.findings[1].contentMarkdown = "Updated finding.";
   assert.match(generatedNotebookSummary(book), /Updated finding/);
   book.findings.pop();
-  assert.doesNotMatch(generatedNotebookSummary(book), /Second question/);
+  assert.doesNotMatch(generatedNotebookSummary(book), /Updated finding/);
   assert.equal(generatedNotebookSummary({ findings: [] }), "");
+});
+
+test("overview deduplicates repeated findings, includes complementary prose and omits demo refusals", () => {
+  const record = (text) => ({
+    result: { summary: text, sources: [] },
+  });
+  const book = {
+    findings: [
+      record(
+        "Mouse cells respond to the combination. Human cells need additional factors.",
+      ),
+      record(
+        "Mouse cells respond to the combination. Human cells need additional factors.",
+      ),
+      record("# Observations\n\nFunctional outcomes remain uncertain."),
+      record(
+        "I couldn’t find a passage about that. This demo searches the selected finding.\n\n- [Example](https://example.com)",
+      ),
+    ],
+  };
+  const summary = generatedNotebookSummary(book);
+  assert.equal(summary.match(/Mouse cells respond/g)?.length, 1);
+  assert.match(summary, /Human cells need additional factors/);
+  assert.match(summary, /Functional outcomes remain uncertain/);
+  assert.ok(
+    summary.indexOf("Human cells") < summary.indexOf("Functional outcomes"),
+  );
+  assert.doesNotMatch(summary, /couldn’t|demo searches|Example|\n|#/);
+  assert.equal(generatedNotebookSummary({ findings: [book.findings[3]] }), "");
+});
+
+test("overview remains brief for long collections and preserves the saved prose", () => {
+  const text = Array.from({ length: 150 }, (_, i) => `measurement${i}`).join(
+    " ",
+  );
+  const book = {
+    findings: [
+      { contentMarkdown: text, result: { summary: "Old", sources: [] } },
+    ],
+  };
+  const summary = generatedNotebookSummary(book);
+  assert.equal(summary.split(/\s+/).length, 100);
+  assert.match(summary, /…$/);
+  assert.equal(book.findings[0].contentMarkdown, text);
 });
 
 test("extractive summary retains decimal values and strips citation syntax before sentence extraction", () => {

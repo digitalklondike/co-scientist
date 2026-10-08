@@ -1,4 +1,7 @@
-import { placeNotebookItem } from "../notebook-presentation";
+import {
+  notebookDragTarget,
+  placeNotebookItem,
+} from "../notebook-presentation";
 import { useEffect, useRef, useState } from "react";
 import { GripVertical } from "lucide-react";
 import { NotebookButton as Button } from "./notebook-ui";
@@ -28,13 +31,17 @@ export function useNotebookSort({
       if (e.altKey && ["ArrowUp", "ArrowDown"].includes(e.key)) {
         e.preventDefault();
         guard(() => {
-          onMove(id, e.key === "ArrowUp" ? -1 : 1);
-          setStatus("Order updated.");
+          try {
+            onMove(id, e.key === "ArrowUp" ? -1 : 1);
+            setStatus("Order updated.");
+          } catch (error) {
+            onNotify(error.message, undefined, "error");
+          }
         });
       }
     },
     onPointerDown: (e) => {
-      if (disabled || e.button !== 0) return;
+      if (disabled || e.button !== 0 || e.isPrimary === false) return;
       const row = e.currentTarget.closest(`[data-sort-group="${group}"]`);
       const rect = row?.getBoundingClientRect();
       drag.current = {
@@ -47,6 +54,17 @@ export function useNotebookSort({
         x: e.clientX,
         y: e.clientY,
         moved: false,
+        pointerId: e.pointerId,
+        rows: [
+          ...document.querySelectorAll(`[data-sort-group="${group}"]`),
+        ].map((element) => {
+          const bounds = element.getBoundingClientRect();
+          return {
+            id: element.getAttribute("data-sort-id"),
+            top: bounds.top,
+            bottom: bounds.bottom,
+          };
+        }),
       };
       e.currentTarget.setPointerCapture(e.pointerId);
     },
@@ -55,7 +73,7 @@ export function useNotebookSort({
   callbacks.current = {
     move: (e) => {
       const current = drag.current;
-      if (!current) return;
+      if (!current || current.pointerId !== e.pointerId) return;
       if (
         Math.abs(e.clientY - current.y) + Math.abs(e.clientX - current.x) < 6 &&
         !current.moved
@@ -67,19 +85,14 @@ export function useNotebookSort({
         dx: e.clientX - current.x,
         dy: e.clientY - current.y,
       });
-      const row = document
-        .elementFromPoint(e.clientX, e.clientY)
-        ?.closest(`[data-sort-group="${group}"]`);
-      if (row) {
-        const nextId = row.getAttribute("data-sort-id");
-        if (nextId !== current.id) {
-          current.targetId = nextId;
-          setTarget(nextId);
-        }
-      }
+      const centerY = current.top + current.height / 2 + e.clientY - current.y;
+      const nextId = notebookDragTarget(current.rows, current.id, centerY);
+      current.targetId = nextId;
+      setTarget(nextId === current.id ? null : nextId);
     },
-    up: () => {
+    up: (e) => {
       const current = drag.current;
+      if (!current || current.pointerId !== e.pointerId) return;
       drag.current = null;
       setDragging(null);
       setTarget(null);
@@ -101,15 +114,17 @@ export function useNotebookSort({
   };
   useEffect(() => {
     const move = (e) => callbacks.current.move(e),
-      up = () => callbacks.current.up(),
+      up = (e) => callbacks.current.up(e),
       cancel = () => callbacks.current.cancel();
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", cancel);
     return () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("blur", cancel);
     };
   }, []);
   const previewItems =
@@ -126,7 +141,8 @@ export function NotebookDragHandle({ label, ...props }) {
       size="icon-sm"
       className="touch-none cursor-grab bg-transparent text-foreground/50 hover:bg-secondary hover:text-foreground focus-visible:text-foreground active:cursor-grabbing"
       aria-label={`Reorder ${label}`}
-      tooltip="Drag to reorder. Keyboard: Alt + ↑ / ↓."
+      tooltip={false}
+      aria-description="Drag to reorder, or use Alt + Up or Down arrow."
       {...props}
     >
       <GripVertical />

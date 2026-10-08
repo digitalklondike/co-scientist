@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { changeNotebook } from "../src/notebook-flows.js";
+import {
+  notebookDragTarget,
+  placeNotebookItem,
+} from "../src/notebook-presentation.js";
 const books = [
   {
     id: "b",
@@ -12,6 +16,35 @@ const books = [
     })),
   },
 ];
+test("dragging crosses resting row midpoints and can return to the original order", () => {
+  const rows = [
+    { id: "a", top: 0, bottom: 40 },
+    { id: "b", top: 52, bottom: 152 },
+    { id: "c", top: 164, bottom: 204 },
+  ];
+  assert.equal(notebookDragTarget(rows, "a", 101), "a");
+  assert.equal(notebookDragTarget(rows, "a", 102), "b");
+  assert.equal(notebookDragTarget(rows, "a", 185), "c");
+  assert.equal(notebookDragTarget(rows, "a", 20), "a");
+  assert.equal(notebookDragTarget(rows, "c", -20), "a");
+  assert.equal(notebookDragTarget(rows, "c", 102), "c");
+  assert.equal(notebookDragTarget(rows, "missing", 100), "missing");
+  const items = books[0].findings;
+  const moved = placeNotebookItem(
+    items,
+    "a",
+    notebookDragTarget(rows, "a", 185),
+  );
+  assert.deepEqual(
+    moved.map((item) => item.id),
+    ["b", "c", "a"],
+  );
+  assert.equal(moved[2].comments[0].text, "Keep a");
+  assert.deepEqual(
+    items.map((item) => item.id),
+    ["a", "b", "c"],
+  );
+});
 test("placing a research block retains its complete data and rejects missing targets", () => {
   const moved = changeNotebook(books, "b", {
     type: "block-place",

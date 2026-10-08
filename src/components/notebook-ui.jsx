@@ -10,6 +10,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { PopoverContent } from "./ui/popover";
+
+export function NotebookPopoverContent({ className, style, ...props }) {
+  return (
+    <PopoverContent
+      collisionPadding={16}
+      {...props}
+      style={{ boxShadow: "var(--notebook-floating-shadow)", ...style }}
+      className={cn(
+        "border-0 bg-[var(--notebook-floating-surface)]",
+        className,
+      )}
+    />
+  );
+}
 
 // Notebook adaptations stay local so Chat can evolve independently.
 export function NotebookButton({
@@ -22,14 +37,17 @@ export function NotebookButton({
 }) {
   const tonal = variant === "tonal";
   const danger = variant === "danger-ghost";
-  const tip = tooltip || (size.startsWith("icon") ? props["aria-label"] : null);
+  const tip =
+    tooltip === false
+      ? null
+      : tooltip || (size.startsWith("icon") ? props["aria-label"] : null);
   const button = (
     <Button
       {...props}
       variant={tonal ? "secondary" : danger ? "ghost" : variant}
       size={size}
       data-notebook-action=""
-      title={tip ? undefined : props.title}
+      title={tip || tooltip === false ? undefined : props.title}
       className={cn(
         "transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out motion-reduce:transition-none",
         size === "default" && "h-10 px-4 has-[>svg]:px-4",

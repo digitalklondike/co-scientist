@@ -344,7 +344,7 @@ export function FindingContent({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="ml-3"
+                className="ml-auto"
                 onClick={() => setPreview(!preview)}
               >
                 {preview ? "Hide preview" : "Preview formatting"}

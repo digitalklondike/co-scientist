@@ -8,6 +8,7 @@ import {
   Pencil,
   Trash2,
   ListChecks,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   NotebookButton as Button,
@@ -17,6 +18,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -307,8 +315,15 @@ export function NotebookNote({
       setExpanded(true);
       setError("");
       setWarning("");
-      requestAnimationFrame(() => inputRef.current?.focus());
+      requestAnimationFrame(() =>
+        inputRef.current?.focus({ preventScroll: true }),
+      );
     });
+  }
+  function focusComposerAfterMenu(event) {
+    if (!inputRef.current) return;
+    event.preventDefault();
+    inputRef.current.focus({ preventScroll: true });
   }
   async function action(comment, type) {
     try {
@@ -406,6 +421,22 @@ export function NotebookNote({
             />
           )}
         </button>
+        {expanded && !!resolvedCount && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0"
+            onClick={() => setShowResolved(!showResolved)}
+          >
+            <CheckCheck />
+            <span className="max-sm:sr-only">
+              {showResolved ? "Hide" : "Show"} {resolvedCount} resolved
+            </span>
+            <span aria-hidden="true" className="sm:hidden">
+              {resolvedCount}
+            </span>
+          </Button>
+        )}
         {!composer && role !== "viewer" && (!expanded || !visible.length) && (
           <Button
             variant="ghost"
@@ -419,16 +450,6 @@ export function NotebookNote({
       </header>
       {expanded && (!!comments.length || composer) && (
         <div id={`comment-list-${editorId}`} className="space-y-2 pb-2">
-          {!!resolvedCount && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowResolved(!showResolved)}
-            >
-              <CheckCheck />
-              {showResolved ? "Hide" : "Show"} {resolvedCount} resolved
-            </Button>
-          )}
           {!visible.length && !composer && !!resolvedCount && (
             <NotebookHint>All discussions resolved.</NotebookHint>
           )}
@@ -476,27 +497,43 @@ export function NotebookNote({
                         {reply.text}
                       </p>
                       {role !== "viewer" && reply.author === "You" && (
-                        <div className="mt-2 flex gap-1 [&_button]:opacity-50 [&_button:hover]:opacity-100 [&_button:focus-visible]:opacity-100">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => start("reply-edit", comment, reply)}
-                          >
-                            <Pencil />
-                            Edit reply
-                          </Button>
-                          <Button
-                            variant="danger-ghost"
-                            size="sm"
-                            onClick={() =>
-                              navigation.request(() =>
-                                removeReply(comment, reply),
-                              )
-                            }
-                          >
-                            <Trash2 />
-                            Delete reply
-                          </Button>
+                        <div className="mt-1">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Actions for reply by ${reply.author}`}
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                <MoreHorizontal />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="start"
+                              onCloseAutoFocus={focusComposerAfterMenu}
+                            >
+                              <DropdownMenuItem
+                                onSelect={() =>
+                                  start("reply-edit", comment, reply)
+                                }
+                              >
+                                <Pencil />
+                                Edit reply
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() =>
+                                  navigation.request(() =>
+                                    removeReply(comment, reply),
+                                  )
+                                }
+                              >
+                                <Trash2 />
+                                Delete reply
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       )}
                     </div>
@@ -504,73 +541,84 @@ export function NotebookNote({
                 </div>
               )}
               {role !== "viewer" && (
-                <div className="flex flex-wrap gap-1 ps-9 [&_button]:h-7 [&_button]:px-2 [&_button]:opacity-50 [&_button:hover]:opacity-100 [&_button:focus-visible]:opacity-100">
-                  {role === "editor" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        navigation.request(() =>
-                          window.dispatchEvent(
-                            new CustomEvent("notebook-create-step", {
-                              detail: {
-                                bookId,
-                                findingId: finding.id,
-                                commentId: comment.id,
-                                text: comment.text,
-                              },
-                            }),
-                          ),
-                        )
-                      }
-                    >
-                      <ListChecks />
-                      Create next step
-                    </Button>
-                  )}
+                <div className="flex items-center gap-1 ps-9">
                   {!comment.resolved && (
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="text-muted-foreground hover:text-foreground"
                       onClick={() => start("reply", comment)}
                     >
                       <Reply />
                       Reply
                     </Button>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => action(comment, "comment-resolve")}
-                  >
-                    <Check />
-                    {comment.resolved ? "Reopen" : "Resolve"}
-                  </Button>
-                  {comment.author === "You" && (
-                    <>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        onClick={() => start("edit", comment)}
+                        size="icon-sm"
+                        aria-label={`Actions for comment by ${comment.author}`}
+                        className="text-muted-foreground hover:text-foreground"
                       >
-                        <Pencil />
-                        Edit
+                        <MoreHorizontal />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() =>
-                          navigation.request(() =>
-                            action(comment, "comment-delete"),
-                          )
-                        }
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="start"
+                      onCloseAutoFocus={focusComposerAfterMenu}
+                    >
+                      {role === "editor" && (
+                        <DropdownMenuItem
+                          onSelect={() =>
+                            navigation.request(() =>
+                              window.dispatchEvent(
+                                new CustomEvent("notebook-create-step", {
+                                  detail: {
+                                    bookId,
+                                    findingId: finding.id,
+                                    commentId: comment.id,
+                                    text: comment.text,
+                                  },
+                                }),
+                              ),
+                            )
+                          }
+                        >
+                          <ListChecks />
+                          Create next step
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        onSelect={() => action(comment, "comment-resolve")}
                       >
-                        <Trash2 />
-                        Delete
-                      </Button>
-                    </>
-                  )}
+                        <Check />
+                        {comment.resolved ? "Reopen" : "Resolve"}
+                      </DropdownMenuItem>
+                      {comment.author === "You" && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => start("edit", comment)}
+                          >
+                            <Pencil />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onSelect={() =>
+                              navigation.request(() =>
+                                action(comment, "comment-delete"),
+                              )
+                            }
+                          >
+                            <Trash2 />
+                            Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )}
             </article>

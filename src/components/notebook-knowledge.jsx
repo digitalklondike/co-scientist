@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   ChevronDown,
   ListTree,
@@ -11,8 +12,9 @@ import {
 import {
   NotebookButton as Button,
   NotebookInput as Input,
+  NotebookPopoverContent as PopoverContent,
 } from "./notebook-ui";
-import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
+import { Popover, PopoverTrigger } from "./ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -42,21 +44,35 @@ export function NotebookTemplateSelect() {
   return (
     <div className="space-y-2">
       <Label htmlFor="notebook-template">Starting structure</Label>
-      <select
-        id="notebook-template"
-        name="notebookTemplate"
-        defaultValue="blank"
-        className="h-11 w-full rounded-md border bg-white px-3 text-base"
-      >
-        {NOTEBOOK_TEMPLATES.map((t) => (
-          <option value={t.id} key={t.id}>
-            {t.title}
-          </option>
-        ))}
-      </select>
-      <p className="text-[14px] text-muted-foreground">
-        Templates provide editable sections. Research and sources are added by
-        you.
+      <Select name="notebookTemplate" defaultValue="blank">
+        <SelectTrigger
+          id="notebook-template"
+          aria-describedby="notebook-template-help"
+          className="w-full text-base data-[size=default]:h-10 max-sm:min-h-11"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent
+          position="popper"
+          align="start"
+          sideOffset={4}
+          collisionPadding={12}
+          className="border-0 bg-[var(--notebook-floating-surface)]"
+          style={{ boxShadow: "var(--notebook-floating-shadow)" }}
+        >
+          {NOTEBOOK_TEMPLATES.map((t) => (
+            <SelectItem
+              value={t.id}
+              key={t.id}
+              className="min-h-10 text-base max-sm:min-h-11"
+            >
+              {t.title}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p id="notebook-template-help" className="text-[14px] text-muted-foreground">
+        Add your own research and sources.
       </p>
     </div>
   );
@@ -103,7 +119,7 @@ export function CitationInsert({ finding, inputRef, draft, onDraft }) {
       <PopoverTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
+          variant={open ? "tonal" : "ghost"}
           size="icon-sm"
           aria-label="Insert citation"
           onClick={() => {
@@ -293,12 +309,16 @@ export function ContextStepDialog({
 }
 
 export function NotebookNavigator({ book, collapsed, onReveal }) {
+  const reducedMotion = useReducedMotion();
   const guard = useNoteNavigation();
   const [open, setOpen] = useState(false),
     [active, setActive] = useState(null);
   const current = useRef(null);
   const restoring = useRef(false);
   const [dock, setDock] = useState(null);
+  useEffect(() => {
+    if (!dock) setOpen(false);
+  }, [!!dock]);
   const go = (findingId, sectionId = "", immediate = false) =>
     guard(() => {
       onReveal(findingId);
@@ -350,6 +370,7 @@ export function NotebookNavigator({ book, collapsed, onReveal }) {
     } catch {}
     if (
       saved &&
+      !current.current &&
       book.findings.some((f) => f.id === saved.findingId) &&
       !location.hash.includes("notebook=")
     ) {
@@ -359,31 +380,36 @@ export function NotebookNavigator({ book, collapsed, onReveal }) {
     const area = document
       .getElementById(`block-${book.findings[0]?.id}`)
       ?.closest("[data-notebook-scroll]");
-    let scrollArea = area;
-    while (
-      scrollArea &&
-      !/(auto|scroll)/.test(getComputedStyle(scrollArea).overflowY)
-    )
-      scrollArea = scrollArea.parentElement;
     let frame;
     const read = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const column = area?.firstElementChild;
         const bounds = column?.getBoundingClientRect();
+        let scrollArea = area;
+        while (
+          scrollArea &&
+          !/(auto|scroll)/.test(getComputedStyle(scrollArea).overflowY)
+        )
+          scrollArea = scrollArea.parentElement;
         const edge = scrollArea?.getBoundingClientRect().top || 0;
+        const width = Math.min(640, Math.max(0, (bounds?.width || 0) - 24));
         const first = document.getElementById(`block-${book.findings[0]?.id}`);
         const reading =
           !!first && first.getBoundingClientRect().top <= edge + 8;
         setDock(
           reading && bounds
-            ? { top: edge, left: bounds.left, width: bounds.width }
+            ? {
+                top: edge + 12,
+                left: bounds.left + (bounds.width - width) / 2,
+                width,
+              }
             : null,
         );
         if (restoring.current) return;
         const root = document.querySelector("[data-notebook-nav]");
         const top =
-          (reading ? root?.getBoundingClientRect().bottom || edge + 44 : edge) +
+          (reading ? root?.getBoundingClientRect().bottom || edge + 76 : edge) +
           16;
         const blocks = [
           ...document.querySelectorAll('[data-testid="saved-finding"]'),
@@ -417,77 +443,95 @@ export function NotebookNavigator({ book, collapsed, onReveal }) {
     area?.addEventListener("scroll", read);
     window.addEventListener("scroll", read, true);
     window.addEventListener("resize", read);
+    const resizeObserver = new ResizeObserver(read);
+    if (area) resizeObserver.observe(area);
     read();
     return () => {
       cancelAnimationFrame(frame);
       area?.removeEventListener("scroll", read);
       window.removeEventListener("scroll", read, true);
       window.removeEventListener("resize", read);
+      resizeObserver.disconnect();
     };
-  }, [book.id]);
+  }, [book]);
   return (
-    <div
-      data-notebook-nav
-      hidden={!dock}
-      style={dock || { display: "none" }}
-      className="fixed z-20 flex items-center gap-3 rounded-b-lg border border-t-0 bg-white px-2 py-1"
-    >
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="secondary" size="sm" aria-label="Navigate notebook">
-            <ListTree />
-            Contents
-            <ChevronDown />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          onCloseAutoFocus={(event) => event.preventDefault()}
-          className="max-h-[65svh] w-[min(420px,calc(100vw-32px))] overflow-y-auto p-2"
-          aria-label="Navigate notebook sections"
+    <AnimatePresence initial={false}>
+      {dock && (
+        <motion.div
+          key={book.id}
+          data-notebook-nav
+          style={{ ...dock, boxShadow: "var(--notebook-dock-shadow)" }}
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{
+            duration: reducedMotion ? 0 : 0.2,
+            ease: [0.16, 1, 0.3, 1],
+          }}
+          className="fixed z-20 flex min-h-16 items-center gap-4 rounded-xl bg-white px-4 py-3"
         >
-          <nav>
-            {book.findings.map((f, i) => (
-              <div key={f.id} className="mb-2">
-                <Button
-                  variant={
-                    active?.findingId === f.id && !active.sectionId
-                      ? "tonal"
-                      : "ghost"
-                  }
-                  className="h-auto w-full justify-start whitespace-normal text-left"
-                  onClick={() => go(f.id)}
-                >
-                  {String(i + 1).padStart(2, "0")} · {f.question}
-                </Button>
-                {notebookSections(markdown(f), f.id).map((s) => (
-                  <Button
-                    key={s.id}
-                    variant={active?.sectionId === s.id ? "tonal" : "ghost"}
-                    className="ml-5 h-auto min-h-8 w-[calc(100%-20px)] justify-start whitespace-normal text-left"
-                    size="sm"
-                    onClick={() => go(f.id, s.id)}
-                  >
-                    {s.title}
-                  </Button>
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-label="Navigate notebook"
+              >
+                <ListTree />
+                Contents
+                <ChevronDown />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              onCloseAutoFocus={(event) => event.preventDefault()}
+              className="max-h-[65svh] w-[min(420px,calc(100vw-32px))] overflow-y-auto p-2"
+              aria-label="Navigate notebook sections"
+            >
+              <nav>
+                {book.findings.map((f, i) => (
+                  <div key={f.id} className="mb-2">
+                    <Button
+                      variant={
+                        active?.findingId === f.id && !active.sectionId
+                          ? "tonal"
+                          : "ghost"
+                      }
+                      className="h-auto w-full justify-start whitespace-normal text-left"
+                      onClick={() => go(f.id)}
+                    >
+                      {String(i + 1).padStart(2, "0")} · {f.question}
+                    </Button>
+                    {notebookSections(markdown(f), f.id).map((s) => (
+                      <Button
+                        key={s.id}
+                        variant={active?.sectionId === s.id ? "tonal" : "ghost"}
+                        className="ml-5 h-auto min-h-8 w-[calc(100%-20px)] justify-start whitespace-normal text-left"
+                        size="sm"
+                        onClick={() => go(f.id, s.id)}
+                      >
+                        {s.title}
+                      </Button>
+                    ))}
+                  </div>
                 ))}
-              </div>
-            ))}
-          </nav>
-        </PopoverContent>
-      </Popover>
-      <p className="min-w-0 truncate text-xs text-muted-foreground">
-        {notebookSections(
-          markdown(
-            book.findings.find((f) => f.id === active?.findingId) || {
-              result: { summary: "", sources: [] },
-            },
-          ),
-          active?.findingId,
-        ).find((s) => s.id === active?.sectionId)?.title ||
-          book.findings.find((f) => f.id === active?.findingId)?.question ||
-          "Navigate research and sections"}
-      </p>
-    </div>
+              </nav>
+            </PopoverContent>
+          </Popover>
+          <p className="min-w-0 truncate text-xs text-muted-foreground">
+            {notebookSections(
+              markdown(
+                book.findings.find((f) => f.id === active?.findingId) || {
+                  result: { summary: "", sources: [] },
+                },
+              ),
+              active?.findingId,
+            ).find((s) => s.id === active?.sectionId)?.title ||
+              book.findings.find((f) => f.id === active?.findingId)?.question ||
+              "Navigate research and sections"}
+          </p>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

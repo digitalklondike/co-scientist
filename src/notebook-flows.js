@@ -648,7 +648,7 @@ export function exportNotebook(book, format, includeComments = true) {
     book.title +
     "\n\n" +
     (book.findings.length
-      ? "## Summary\n\nLocal demo · Automatically extracted from saved records.\n\n" +
+      ? "## Summary\n\nLocal demo · Overview of saved records.\n\n" +
         generatedNotebookSummary(book) +
         "\n\n"
       : "") +

@@ -272,7 +272,7 @@ export function NotebookOverview({ book, role, onChange }) {
             onClick={() => setActive(active === key ? null : key)}
           >
             <Icon className="size-4 shrink-0 text-primary" />
-            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-[14px] font-medium leading-4">{title}</span>
               <span className="text-xs font-normal leading-4 text-muted-foreground tabular-nums">
                 {info}
@@ -352,7 +352,7 @@ export function NotebookOverview({ book, role, onChange }) {
           <NotebookSummary book={book} role={role} onChange={onChange} />
           <div className="flex flex-col gap-3">
             <section
-              className="min-w-0 rounded-lg border bg-white p-4"
+              className="min-w-0 rounded-lg bg-white p-4"
               aria-label="Key evidence"
             >
               <h3 className="flex items-center gap-2 text-base font-medium">
@@ -397,7 +397,7 @@ export function NotebookOverview({ book, role, onChange }) {
               </div>
             </section>
             <section
-              className="min-w-0 rounded-lg border bg-white p-4"
+              className="min-w-0 rounded-lg bg-white p-4"
               aria-label="Open questions"
             >
               <h3 className="flex items-center gap-2 text-base font-medium">

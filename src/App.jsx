@@ -115,6 +115,9 @@ import { Progress } from "@/components/ui/progress";
 import { ScenarioCards, ScenarioCatalog, ResearchContextChip, ScenarioDraftHint, IntentClarification } from "@/components/research-scenarios";
 import { researchIntent, hasPromptPlaceholder, supportsPreparedTopic } from "./research-intent.js";
 import { researchContext, answerWithContext } from "./research-context.js";
+import { researchHistory, archiveResearchIds, restoreResearchIds, withResearchPresets } from "./research-history.js";
+import { ResearchHistory } from "./components/research-history";
+import { QuestionTemplateHint, QUESTION_TEMPLATE_HELP } from "./components/question-template-hint";
 import {
   EXAMPLES,
   SAMPLE,
@@ -127,12 +130,12 @@ import {
   markdown,
 } from "./data";
 
-function useSaved(key, initial) {
+function useSaved(key, initial, prepare = (value) => value) {
   const [value, setValue] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("cosci-" + key)) ?? initial;
+      return prepare(JSON.parse(localStorage.getItem("cosci-" + key)) ?? initial);
     } catch {
-      return initial;
+      return prepare(initial);
     }
   });
   useEffect(() => {
@@ -463,11 +466,14 @@ function ResearchWorkspace() {
     return () => query.removeEventListener("change", update);
   }, []);
   const [view, setView] = useState("home"),
-    [records, setRecords] = useSaved("records", []),
+    [records, setRecords] = useSaved("records", [], withResearchPresets),
     [books, setBooks] = useSaved("books-v2", []),
     [guide, setGuide] = useState(true);
   const booksRef = useRef(books);
   booksRef.current = books;
+  const [archivedHistory, setArchivedHistory] = useSaved("archived-research", []);
+  const archivedHistoryRef = useRef(archivedHistory);
+  archivedHistoryRef.current = archivedHistory;
   useEffect(() => {
     const sync = event => {
       if (event.key !== "cosci-books-v2" || !event.newValue) return;
@@ -515,21 +521,35 @@ function ResearchWorkspace() {
     book = books.find((b) => b.id === bookId) || books[0],
     saved =
       current && books.some((b) => b.findings.some((f) => f.id === current.id));
+  const questionIsTemplate = hasPromptPlaceholder(question);
   const workspaceTab = view === "notebook" ? "notebook" : view === "scenarios" ? "scenarios" : "chat";
-  const recentResearch = records.find((record) => !record.context && !record.result.needsFile && !record.result.unrelated && record.result.title !== "Notebook follow-up");
+  const history = researchHistory(records, archivedHistory, search, active);
+  const recentResearch = history.all.find((record) => !record.context && !record.result.needsFile && !record.result.unrelated);
   const chatFinding = book?.findings.find((finding) => finding.id === chatFindingId) || book?.findings.at(-1);
   useEffect(() => { setDiscussionOpen(false); }, [view, notebookDetail, book?.id]);
-  const matchingHistory = records.filter((r) =>
-    r.result.title !== "Notebook follow-up" && r.question.toLowerCase().includes(search.toLowerCase()),
-  );
-  const recentTopics = new Map();
-  for (const record of matchingHistory) {
-    const topic = record.question.trim().toLowerCase().replace(/[?.]$/, "");
-    if (!recentTopics.has(topic) || record.id === active) recentTopics.set(topic, record);
-  }
-  const visibleHistory = showAllHistory || search
-    ? matchingHistory
-    : [...recentTopics.values()].slice(0, 5);
+  const persistHistoryArchive = (next) => {
+    try {
+      localStorage.setItem("cosci-archived-research", JSON.stringify(next));
+      archivedHistoryRef.current = next;
+      setArchivedHistory(next);
+      return true;
+    } catch {
+      notify("History could not be updated.", undefined, "error", "Your research remains available. Free up storage and try again.");
+      return false;
+    }
+  };
+  const restoreHistory = (ids = archivedHistoryRef.current) => {
+    if (persistHistoryArchive(restoreResearchIds(archivedHistoryRef.current, ids))) {
+      notify("Research restored.");
+    }
+  };
+  const archiveHistory = () => {
+    const ids = history.all.map((record) => record.id);
+    if (!persistHistoryArchive(archiveResearchIds(archivedHistoryRef.current, ids))) return;
+    setSearch("");
+    setShowAllHistory(false);
+    notify("Research history archived.", { label: "Undo", run: () => restoreHistory(ids) }, "info", "Saved notebooks and original research remain available.");
+  };
   const firstQuestion =
     guide &&
     (!guidedId || (current?.id === guidedId && current.result.needsFile));
@@ -739,9 +759,7 @@ function ResearchWorkspace() {
       return;
     }
     if (hasPromptPlaceholder(question)) {
-      setDraftNotice(selectedScenario?.example === null
-        ? "Replace the text in brackets with your topic. Your question stays editable."
-        : "Replace the text in brackets with your topic, or use a demo example below.");
+      setDraftNotice(QUESTION_TEMPLATE_HELP);
       input.current?.focus();
       return;
     }
@@ -1284,85 +1302,20 @@ function ResearchWorkspace() {
           />
         </SidebarHeader>
         <SidebarContent>
-          <SidebarGroup className="px-3">
-            <SidebarGroupLabel>Recent research</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-1">
-                {task && (
-                  <SidebarMenuItem>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <SidebarMenuButton
-                          className="h-10 rounded-sm hover:bg-primary/10 data-[active=true]:bg-white data-[active=true]:text-foreground data-[active=true]:hover:bg-white"
-                          isActive={view === "loading"}
-                          onClick={() => nav("loading")}
-                          data-testid="pending-chat"
-                          aria-label={`Research in progress: ${task.question}`}
-                        >
-                          <Spinner className="size-4 shrink-0" />
-                          <span className="truncate">
-                            {task.question.replace(/[?.]$/, "")}
-                          </span>
-                        </SidebarMenuButton>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="right"
-                        className="max-w-72 text-[length:var(--text-navigation)] leading-5 leading-relaxed"
-                      >
-                        {task.question} · Research in progress
-                      </TooltipContent>
-                    </Tooltip>
-                  </SidebarMenuItem>
-                )}
-                {visibleHistory
-                  .map((r) => (
-                    <SidebarMenuItem key={r.id}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <SidebarMenuButton
-                            className="h-10 rounded-sm hover:bg-primary/10 data-[active=true]:bg-white data-[active=true]:text-foreground data-[active=true]:hover:bg-white"
-                            data-testid="history-chat"
-                            isActive={r.id === active && view === "answer"}
-                            onClick={() => openRecord(r)}
-                            aria-label={r.question}
-                          >
-                            <span className="truncate">
-                              {r.question.replace(/[?.]$/, "")}
-                            </span>
-                          </SidebarMenuButton>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="right"
-                          className="max-w-72 text-[length:var(--text-navigation)] leading-5 leading-relaxed"
-                        >
-                          {r.question}
-                        </TooltipContent>
-                      </Tooltip>
-                    </SidebarMenuItem>
-                  ))}
-                {!search && matchingHistory.length > 5 && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      className="text-muted-foreground"
-                      onClick={() => setShowAllHistory(!showAllHistory)}
-                    >
-                      {showAllHistory ? "Show less" : "Show all research"}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-              </SidebarMenu>
-              {!records.length && (
-                <p className="px-2 py-4 text-[length:var(--text-navigation)] leading-5 leading-relaxed text-muted-foreground">
-                  Your research will appear here.
-                </p>
-              )}
-              {search && !matchingHistory.length && (
-                <p className="px-2 py-4 text-[length:var(--text-navigation)] leading-5 text-muted-foreground">
-                  No matching research.
-                </p>
-              )}
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <ResearchHistory
+            history={history}
+            search={search}
+            expanded={showAllHistory}
+            onExpandedChange={setShowAllHistory}
+            active={active}
+            view={view}
+            task={task}
+            onOpen={openRecord}
+            onPending={() => nav("loading")}
+            onArchive={archiveHistory}
+            onRestore={() => restoreHistory()}
+            archivedCount={archivedHistory.length}
+          />
           {readyId && !task && view !== "answer" && (
             <SidebarGroup>
               <Button
@@ -1430,7 +1383,7 @@ function ResearchWorkspace() {
         <div
           id="content"
           ref={workspaceScroll}
-          className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-8", fitHome && "lg:py-3", view === "notebook" && books.length > 0 && "xl:overflow-hidden xl:px-0 xl:py-0")}
+          className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-8", view === "home" && "[scrollbar-gutter:stable]", fitHome && "lg:py-3", view === "notebook" && books.length > 0 && "xl:overflow-hidden xl:px-0 xl:py-0")}
           tabIndex={-1}
         >
           <div
@@ -1451,7 +1404,7 @@ function ResearchWorkspace() {
             />
             {view === "scenarios" && <ScenarioCatalog onChoose={chooseScenario} recentResearch={recentResearch} onContinue={continueResearch} onOpen={openRecord} />}
             {view === "home" && (
-              <div className={cn("mx-auto w-full max-w-3xl space-y-7 pt-4 sm:pt-6", fitHome && "flex max-w-4xl flex-col gap-4 space-y-0 lg:my-auto lg:pt-0 lg:[@media(max-height:899px)]:gap-3")}>
+              <div className={cn("mx-auto w-full max-w-4xl space-y-7 pt-4 sm:pt-6", fitHome && "flex flex-col gap-4 space-y-0 lg:my-auto lg:pt-0 lg:[@media(max-height:899px)]:gap-3")}>
                 <div className={cn("space-y-3", fitHome && "shrink-0 space-y-2")}>
                   <div className="flex flex-wrap items-center gap-2">
                     <Identity />
@@ -1484,13 +1437,16 @@ function ResearchWorkspace() {
                     className={cn("space-y-3 overflow-hidden rounded-2xl border-0 bg-secondary/70 p-4 outline-1 outline-transparent -outline-offset-1 transition-[outline-color] hover:outline-primary/50 focus-within:outline-primary", fitHome && "shrink-0 space-y-2 lg:[@media(max-height:899px)]:p-3")}
                     onSubmit={submit}
                   >
-                    <Label htmlFor="question">Your question</Label>
+                    <div className="flex items-center gap-1">
+                      <Label htmlFor="question">Your question</Label>
+                      {questionIsTemplate && <QuestionTemplateHint question={question} notice={draftNotice} onDismiss={() => setDraftNotice("")} />}
+                    </div>
                     {draftContext && <ResearchContextChip context={draftContext} onRemove={() => setDraftContext(null)} onOpen={records.some((record) => record.id === draftContext.id) ? () => openRecord(records.find((record) => record.id === draftContext.id)) : undefined} />}
                     <Textarea
                       id="question"
                       ref={input}
                       className={cn("min-h-28 resize-none rounded-none border-0 bg-transparent p-0 text-base shadow-none hover:outline-none focus-visible:ring-0", fitHome && "h-16 min-h-16 lg:h-6 lg:min-h-6 lg:[@media(min-height:900px)]:h-16 lg:[@media(min-height:900px)]:min-h-16")}
-                      aria-describedby={[firstQuestion && !task ? "research-guide-1-description" : "", selectedScenario && !clarifyIntent ? "scenario-draft-hint" : "", draftNotice ? "question-notice" : ""].filter(Boolean).join(" ") || undefined}
+                      aria-describedby={[firstQuestion && !task ? "research-guide-1-description" : "", selectedScenario && !clarifyIntent ? "scenario-draft-hint" : "", draftNotice ? "question-notice" : questionIsTemplate ? "question-template-instructions" : ""].filter(Boolean).join(" ") || undefined}
                       placeholder={
                         file
                           ? "Which columns should we explore?"
@@ -1570,7 +1526,7 @@ function ResearchWorkspace() {
                     </div>
                   </form>
                 </ResearchGuide>
-                {draftNotice && (
+                {draftNotice && !questionIsTemplate && (
                   <div className="space-y-3">
                     <p id="question-notice" role="status" className="text-base leading-relaxed text-primary">{draftNotice}</p>
                     {!selectedScenario && <Button type="button" variant="secondary" onClick={useDemoExample}>Use demo example</Button>}
@@ -2265,10 +2221,11 @@ function ResearchWorkspace() {
         >
           <form onSubmit={newBook} className="space-y-5">
             <NotebookTemplateSelect />
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Label htmlFor="new-notebook-name">Notebook name</Label>
               <Input
                 id="new-notebook-name"
+                className="h-10 max-sm:min-h-11"
                 placeholder="e.g. Cardiac reprogramming"
                 value={name}
                 onChange={(e) => setName(e.target.value)}

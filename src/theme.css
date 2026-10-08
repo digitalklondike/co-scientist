@@ -59,6 +59,11 @@
   --card-foreground: #243746;
   --popover: #ffffff;
   --popover-foreground: #243746;
+  --notebook-floating-surface: color-mix(in srgb, var(--primary) 4%, white);
+  --notebook-floating-shadow:
+    0 2px 6px rgb(36 55 70 / 12%), 0 8px 24px rgb(36 55 70 / 14%);
+  --notebook-dock-shadow:
+    0 4px 12px -6px rgb(36 55 70 / 16%), 0 12px 24px -12px rgb(36 55 70 / 20%);
   --primary: #0067a5;
   --primary-foreground: #ffffff;
   --secondary: #f2f5f7;
@@ -168,4 +173,47 @@
   --notebook-chart-1: #a9cfe5;
   --notebook-chart-2: #b9d9cd;
   --notebook-chart-3: #cbc7e5;
+}
+
+/* Generated content has its own quiet surface and one bounded update cue. */
+.notebook-ai-summary {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    115deg,
+    color-mix(in srgb, var(--primary) 7%, white),
+    color-mix(in srgb, var(--accent) 28%, white)
+  );
+}
+.notebook-ai-summary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 25%,
+    rgb(255 255 255 / 75%) 50%,
+    transparent 75%
+  );
+  transform: translateX(-100%);
+  animation: notebook-summary-light 1100ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes notebook-summary-light {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notebook-ai-summary::after {
+    display: none;
+  }
 }

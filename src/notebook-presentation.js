@@ -34,3 +34,12 @@ export function placeNotebookItem(items, id, targetId) {
   next.splice(to, 0, item);
   return next;
 }
+
+// Use the resting row positions so animated neighbors cannot change the target.
+export function notebookDragTarget(rows, id, centerY) {
+  if (!rows.some((row) => row.id === id)) return id;
+  const index = rows.filter(
+    (row) => row.id !== id && centerY >= (row.top + row.bottom) / 2,
+  ).length;
+  return rows[index]?.id || id;
+}
