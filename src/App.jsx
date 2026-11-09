@@ -1200,13 +1200,16 @@ function ResearchWorkspace() {
             </div>
           </form>
   );
-  const notebookPanelContent = current && (
+  const savedFinding = modal === "saved" && savingFinding
+    ? book?.findings.find((finding) => finding.id === savingFinding.id)
+    : null;
+  const notebookPanelContent = book && savedFinding && (
             <div className="space-y-6">
               <div className="flex items-center gap-3 rounded-2xl bg-emerald-700/10 p-4" role="status">
                 <CheckCircle2 className="size-5 shrink-0 text-emerald-700" />
                 <div className="min-w-0">
                   <p className="text-xs text-emerald-700">Saved to notebook</p>
-                  <p className="text-base font-medium">{book?.title}</p>
+                  <p className="text-base font-medium">{book.title}</p>
                 </div>
               </div>
               <section className="space-y-4 rounded-2xl bg-secondary/60 p-5" aria-label="Saved finding preview">
@@ -1214,18 +1217,18 @@ function ResearchWorkspace() {
                   <p className="text-xs text-muted-foreground">Your research question</p>
                   <h3 className="text-base font-semibold leading-relaxed">{savingFinding.question}</h3>
                 </div>
-                {book?.findings.find((f) => f.id === savingFinding.id)?.contentMarkdown !== undefined ? (
+                {savedFinding.contentMarkdown !== undefined ? (
                   <Accordion type="single" collapsible><AccordionItem value="edited-answer" className="border-0">
                     <AccordionTrigger className="items-center py-2 text-xs [&>svg]:translate-y-0">{excerptFinding ? "Selected text saved" : "Edited answer saved"}</AccordionTrigger>
-                    <AccordionContent><NotebookMarkdown>{book.findings.find((f) => f.id === savingFinding.id).contentMarkdown}</NotebookMarkdown></AccordionContent>
+                    <AccordionContent><NotebookMarkdown>{savedFinding.contentMarkdown}</NotebookMarkdown></AccordionContent>
                   </AccordionItem></Accordion>
                 ) : <p className="text-base leading-relaxed">{savingFinding.result.summary}</p>}
-                {(book?.findings.find((f) => f.id === savingFinding.id)?.contentMarkdown === undefined && book?.findings.find((f) => f.id === savingFinding.id)?.result.report) && (
+                {(savedFinding.contentMarkdown === undefined && savedFinding.result.report) && (
                   <Accordion type="single" collapsible>
                     <AccordionItem value="saved-analysis" className="border-0">
                       <AccordionTrigger className="items-center py-2 text-xs [&>svg]:translate-y-0">Full analysis saved</AccordionTrigger>
                       <AccordionContent className="space-y-4 text-base leading-relaxed">
-                        {book.findings.find((f) => f.id === savingFinding.id).result.report.sections.map((section) => (
+                        {savedFinding.result.report.sections.map((section) => (
                           <section key={section.title} className="space-y-2">
                             <h4 className="font-semibold">{section.title}</h4>
                             {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
@@ -1248,7 +1251,7 @@ function ResearchWorkspace() {
                   </div>
                 ) : <p className="text-xs text-muted-foreground">{excerptFinding ? "Selected answer text · Original research linked" : `Dataset: ${savingFinding.result.filename}`}</p>}
               </section>
-              <NotebookNote key={`${book.id}:${savingFinding.id}`} bookId={book.id} finding={book.findings.find((f) => f.id === savingFinding.id)} onSave={changeBook} onNotify={notify} role={book.accessRole || "editor"} />
+              <NotebookNote key={`${book.id}:${savedFinding.id}`} bookId={book.id} finding={savedFinding} onSave={changeBook} onNotify={notify} role={book.accessRole || "editor"} />
               <div className="flex flex-wrap gap-3">
                 <Button onClick={() => requestNoteNavigation(() => { setModal(null); finishGuidance(); applyNav("notebook"); setNotebookDetail(true); })}><NotebookPen />Open full notebook<ArrowRight /></Button>
                 <Button variant="secondary" onClick={() => requestNoteNavigation(() => setModal(null))}>Back to research</Button>
